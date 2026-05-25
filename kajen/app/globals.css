@@ -1,0 +1,26 @@
+@import "tailwindcss";
+
+@theme {
+  /* Hundested-tema (mørk/rust) */
+  --color-rust:          #7a3010;
+  --color-rust-dark:     #5a2008;
+  --color-rust-light:    #a04520;
+  --color-charcoal:      #1e1e1e;
+  --color-charcoal-mid:  #2e2e2e;
+  --color-offwhite:      #f5f4f2;
+  --color-warm-gray:     #e8e4de;
+
+  /* Nautisk-tema (lys/marineblå) */
+  --color-navy:          #1a3558;
+  --color-navy-dark:     #0f2238;
+  --color-navy-mid:      #2a527a;
+  --color-sand:          #b8935a;
+  --color-sand-light:    #e8d5b7;
+  --color-cream:         #faf6f0;
+}
+
+body {
+  color: #1a1a1a;
+  font-family: system-ui, -apple-system, sans-serif;
+  background-color: #1e1e1e;
+}

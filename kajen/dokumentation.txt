@@ -1,0 +1,113 @@
+KAJEN – HUNDESTED BAADEVÆRFT PROTOTYPE
+Dokumentation · Opdateret 22. maj 2026
+=======================================
+
+HVAD ER DETTE?
+--------------
+"Kajen" er en Next.js prototype for Hundested Baadeværft. Formålet er at vise
+hvordan en online booking og administrationsportal kan se ud. Det er IKKE en
+færdig løsning – ingen rigtige betalinger gennemføres, og der er ingen login.
+
+
+TEKNISK STACK
+-------------
+- Next.js (App Router) med TypeScript
+- Tailwind CSS v4 med custom farvetokens (@theme i globals.css)
+- Supabase (forberedt, ikke fuldt implementeret)
+- Kører lokalt med: npm run dev  →  http://localhost:3000
+
+
+FARVEPALETTE (defineret i globals.css / tailwind)
+--------------------------------------------------
+bg-charcoal        #1e1e1e  (mørkeste baggrund)
+bg-charcoal-mid    ~#2e2e2e (service-bånd på forsiden)
+bg-offwhite        ~#f5f0eb (beige baggrund på indholdssider)
+bg-warm-gray       ~#e8e0d8 (tabellinjer, borders)
+bg-rust            rustbrun (primær CTA-knap)
+bg-rust-dark       mørkere rust (hover)
+bg-rust-light      lysere rust
+bg-sand            sandfarvet (nautisk variant)
+
+
+SIDER OG RUTER
+--------------
+/                       Rod-side: vælg mellem Original og Nautisk variant
+/hundested              Forside: hero + 4 infobokse (Services, Faciliteter, Reservedele, Historie)
+/hundested/priser       Pristabel for kranløft og vinteropbevaring
+/hundested/kontakt      Kontaktside: split layout med billede + kontaktinfo
+/hundested/book         Booking-flow (se nedenfor)
+/admin                  Intern administrationspanel
+/nautisk                Konceptudkast, nautisk/marineblå stil – ingen navigation aktiv
+
+
+BILLEDER (i /public/billeder/)
+-------------------------------
+Logo.jpg                         Officielt logo – bruges i header og footer
+hundestedbaadevaerft1.webp       Luftfoto/helhedsview af værftet
+hundestedhavn1-4.webp            Havnebilleder
+bådoptagning1.jpeg               Båd på stativer
+bådoptagning2.jpeg               Kranløft i gang
+arbejde1.jpeg                    Arbejde på båd (sort streg – undgå som hero)
+arbejde2.jpeg                    Arbejde på båd
+stativer1.jpeg                   Stativer og opbevaringspladser
+kontakt1.jpg                     Kontoret / kontaktbillede
+
+
+BOOKING-FLOW (/hundested/book)
+-------------------------------
+Trin 1: Båd         Navn, bredde, type, vægt (+ mast/stormstøtter for sejlbåde)
+Trin 2: Krantype    Vinteropbevaring / Bedding / Kun kranløft (auto-avancerer)
+Trin 3: Tidspunkt   Vælg dato og tid fra tilgængelige slots
+Trin 4: Info        Navn, e-mail, telefon
+Trin 5: Opsummering Gennemse ordre og pris
+Trin 6: Betaling    Kortformular (simuleret – ingen rigtig betaling)
+Bekræftelse:        Bookingnummer, prisspecifikation, "hvad sker der nu"
+
+Vigtige regler i flowet:
+- "Fortsæt"-knappen vises FØRST når alle felter i trinnet er udfyldt
+- Hjælpetekst viser præcis hvad der mangler i hvert trin
+- Betalingsanimation (spinner) i ~2 sekunder før bekræftelse
+
+
+ADMINISTRATIONSPANEL (/admin)
+------------------------------
+- Tre faner: Bookinger, Lager, Tidsvinduer
+- Gul intern-advarsel øverst (siden er ikke synlig for kunder)
+- I en færdig løsning kræves login med adgangskode
+
+
+DESIGN-REGLER (konsistens på tværs af sider)
+---------------------------------------------
+- Alle sider: max-w-6xl mx-auto px-6 (flugter med header/footer logo)
+- Alle sideoverskrifter: text-3xl font-black uppercase tracking-tight text-charcoal
+- Undertekst: text-gray-500 mt-1
+- Primær CTA-knap: bg-rust hover:bg-rust-dark text-white font-black uppercase tracking-widest
+- Sekundær knap: border border-charcoal text-charcoal hover:bg-charcoal hover:text-white
+- Tabeller/kort: bg-white border border-warm-gray rounded-xl
+
+
+NAUTISK VARIANT (/nautisk)
+---------------------------
+- Konceptudkast – viser en alternativ lys/maritim stil (navy + sand)
+- Ingen knapper eller links navigerer videre – kun til visning
+- Bruger samme lokale billeder som original-varianten
+- Header har "Konceptudkast"-badge og udtonede nav-elementer
+
+
+KENDTE BEGRÆNSNINGER (prototype)
+---------------------------------
+- Ingen rigtig betaling – kortformular er simuleret
+- Ingen login på admin-siden
+- Tidspunkter er mock-data (ikke rigtige ledige tider)
+- Bookinger gemmes ikke permanent
+
+
+TODO / NÆSTE SKRIDT
+--------------------
+[ ] Rigtig betalingsgateway (fx Stripe eller Quickpay)
+[ ] Login/adgangskode til administrationssiden
+[ ] Supabase integration: gem bookinger i database
+[ ] E-mail kvittering til kunde ved bekræftelse
+[ ] Reelle ledige tider fra kalender/system
+[ ] Mobil-navigation (hamburger menu)
+[ ] Google Maps embed på kontaktsiden
