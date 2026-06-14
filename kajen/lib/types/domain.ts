@@ -93,6 +93,14 @@ export type OrderLine = {
   attributes: OrderLineAttributes
 }
 
+export type TimeSlot = {
+  id: string
+  service_id: string
+  starts_at: string
+  capacity: number
+  booked_count: number
+}
+
 export type Order = {
   id: string
   tenant_id: string
