@@ -8,6 +8,8 @@ const NAV = [
   { href: '/admin/timeslots', label: 'Tidspunkter' },
   { href: '/admin/bookings',  label: 'Bookinger' },
   { href: '/admin/pricing',   label: 'Priser' },
+  { href: '/admin/lager',     label: 'Lager' },
+  { href: '/admin/settings',  label: 'Indstillinger' },
 ]
 
 export function AdminNav({ tenantName }: { tenantName: string }) {

@@ -41,7 +41,7 @@ export default async function PricingPage() {
   return (
     <div className="max-w-3xl">
       <h1 className="text-2xl font-bold text-charcoal mb-2">Priser</h1>
-      <p className="text-sm text-charcoal/50 mb-6">Priser angives i øre (1 kr = 100 øre)</p>
+      <p className="text-sm text-charcoal/50 mb-6">Klik på en pris for at redigere</p>
 
       <div className="bg-white rounded-xl border border-warm-gray overflow-hidden">
         <table className="w-full text-sm">

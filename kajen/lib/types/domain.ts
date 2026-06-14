@@ -15,6 +15,7 @@ export type TenantConfig = {
   contactPhone?: string
   contactAddress?: string[]
   contactHours?: string
+  logoUrl?: string
   theme: string
   cancellationPolicy: string
 }

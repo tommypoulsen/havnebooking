@@ -32,12 +32,12 @@ export async function middleware(request: NextRequest) {
   const isTenantAdmin = TENANT_ADMIN_PATHS.some(p => pathname.startsWith(p))
   const isSuperAdmin = SUPER_ADMIN_PATHS.some(p => pathname.startsWith(p))
 
+  const role = user?.app_metadata?.role
+
   if (isTenantAdmin || isSuperAdmin) {
     if (!user) {
       return NextResponse.redirect(new URL('/login', request.url))
     }
-
-    const role = user.app_metadata?.role
 
     if (isSuperAdmin && role !== 'super_admin') {
       return NextResponse.redirect(new URL('/', request.url))
@@ -46,6 +46,11 @@ export async function middleware(request: NextRequest) {
     if (isTenantAdmin && role !== 'admin' && role !== 'staff' && role !== 'super_admin') {
       return NextResponse.redirect(new URL('/login', request.url))
     }
+  }
+
+  // Redirect super admins from root to their dashboard
+  if (pathname === '/' && role === 'super_admin') {
+    return NextResponse.redirect(new URL('/tenants', request.url))
   }
 
   return response

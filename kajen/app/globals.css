@@ -10,6 +10,12 @@
   --color-offwhite:     #f5f4f2;
   --color-warm-gray:    #e8e4de;
 
+  /* Semantiske status-farver (admin UI) */
+  --color-success:      #15803d;
+  --color-success-bg:   #dcfce7;
+  --color-danger:       #b91c1c;
+  --color-danger-bg:    #fee2e2;
+
   /* Nautisk-tema (lys/marineblå) */
   --color-navy:         #1a3558;
   --color-navy-dark:    #0f2238;

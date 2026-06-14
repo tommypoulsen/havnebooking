@@ -20,7 +20,7 @@ const STATUS_LABEL: Record<OrderStatus, string> = {
 
 const STATUS_COLOR: Record<OrderStatus, string> = {
   pending:   'bg-sand-light text-charcoal/70',
-  confirmed: 'bg-green-100 text-green-700',
+  confirmed: 'bg-success-bg text-success',
   cancelled: 'bg-warm-gray text-charcoal/50',
   refunded:  'bg-warm-gray text-charcoal/50',
 }

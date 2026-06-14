@@ -95,7 +95,7 @@ export default async function TimeSlotsPage() {
                     {dateSlots.map(slot => {
                       const full = slot.booked_count >= slot.capacity
                       return (
-                        <div key={slot.id} className={`px-4 py-3 flex items-center justify-between ${full ? 'bg-red-50' : ''}`}>
+                        <div key={slot.id} className={`px-4 py-3 flex items-center justify-between ${full ? 'bg-danger-bg' : ''}`}>
                           <div className="flex items-center gap-4">
                             <span className="font-bold text-charcoal text-base w-14">
                               {formatTime(slot.starts_at)}

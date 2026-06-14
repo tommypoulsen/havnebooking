@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 
 export async function login(
-  _prev: string | null,
+  _prev: string | null | undefined,
   formData: FormData
 ): Promise<string | null> {
   const email = formData.get('email') as string
@@ -15,7 +15,7 @@ export async function login(
 
   if (error) return 'Forkert e-mail eller adgangskode'
 
-  redirect('/admin')
+  return null
 }
 
 export async function logout() {

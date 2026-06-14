@@ -1,10 +1,17 @@
 'use client'
 
-import { useActionState } from 'react'
+import { useActionState, useEffect } from 'react'
 import { login } from '@/lib/supabase/actions'
 
 export default function LoginPage() {
-  const [error, formAction, isPending] = useActionState(login, null)
+  const [state, formAction, isPending] = useActionState(login, undefined)
+
+  useEffect(() => {
+    if (state === null) {
+      // null = success (undefined = initial, string = error)
+      window.location.href = '/admin/timeslots'
+    }
+  }, [state])
 
   return (
     <div className="w-full max-w-sm">
@@ -33,8 +40,8 @@ export default function LoginPage() {
           />
         </label>
 
-        {error && (
-          <p className="text-sm text-rust bg-rust/10 rounded-lg px-3 py-2">{error}</p>
+        {typeof state === 'string' && (
+          <p className="text-sm text-rust bg-rust/10 rounded-lg px-3 py-2">{state}</p>
         )}
 
         <button

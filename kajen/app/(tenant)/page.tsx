@@ -21,7 +21,7 @@ export default async function TenantHomePage() {
       {/* Hero */}
       <section className="relative bg-charcoal text-white min-h-[480px] flex items-center">
         <div className="absolute inset-0"
-          style={{ background: 'linear-gradient(135deg, var(--color-charcoal) 0%, #1a2535 100%)' }} />
+          style={{ background: 'linear-gradient(135deg, var(--color-charcoal) 0%, var(--color-navy-dark) 100%)' }} />
         <div className="relative max-w-6xl mx-auto px-6 py-20 w-full">
           <div className="w-10 h-0.5 bg-rust mb-8" />
           <h1 className="text-5xl md:text-6xl font-black uppercase tracking-tight mb-4 leading-none text-white">

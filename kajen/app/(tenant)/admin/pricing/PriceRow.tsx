@@ -2,8 +2,7 @@
 
 import { useActionState } from 'react'
 import { updatePricingRule } from './actions'
-import { formatPrice } from '@/lib/utils/pricing'
-import type { PricingRule, SizeCategory } from '@/lib/types/domain'
+import type { PricingRule } from '@/lib/types/domain'
 
 const DURATION_LABEL: Record<string, string> = {
   per_lift:   'pr. løft',
@@ -31,14 +30,14 @@ export function PriceRow({
         <form action={formAction} className="flex items-center gap-2">
           <input type="hidden" name="id" value={rule.id} />
           <input
-            name="price_oere"
+            name="price_kr"
             type="number"
             required
             min={1}
-            defaultValue={rule.price_oere}
-            className="w-28 border border-warm-gray rounded-lg px-2 py-1 text-sm text-charcoal focus:outline-none focus:border-rust text-right"
+            defaultValue={rule.price_oere / 100}
+            className="w-24 border border-warm-gray rounded-lg px-2 py-1 text-sm text-charcoal focus:outline-none focus:border-rust text-right"
           />
-          <span className="text-xs text-charcoal/40">øre</span>
+          <span className="text-xs text-charcoal/40">kr.</span>
           <button
             type="submit"
             disabled={isPending}
@@ -48,9 +47,6 @@ export function PriceRow({
           </button>
           {error && <span className="text-xs text-rust">{error}</span>}
         </form>
-        <p className="text-xs text-charcoal/40 mt-0.5 pl-0.5">
-          = {formatPrice(rule.price_oere)}
-        </p>
       </td>
     </tr>
   )
