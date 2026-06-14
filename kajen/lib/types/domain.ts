@@ -12,6 +12,9 @@ export type DurationType = 'per_lift' | 'per_season' | 'per_day'
 export type TenantConfig = {
   displayName: string
   contactEmail: string
+  contactPhone?: string
+  contactAddress?: string[]
+  contactHours?: string
   theme: string
   cancellationPolicy: string
 }

@@ -1,6 +1,9 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+const TENANT_ADMIN_PATHS = ['/admin']
+const SUPER_ADMIN_PATHS = ['/tenants', '/services-config']
+
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request })
 
@@ -23,16 +26,33 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // Validates the JWT with Supabase and refreshes the session if needed.
-  // Use getUser() — not getSession() — as it verifies with the auth server.
-  await supabase.auth.getUser()
+  const { data: { user } } = await supabase.auth.getUser()
+  const { pathname } = request.nextUrl
+
+  const isTenantAdmin = TENANT_ADMIN_PATHS.some(p => pathname.startsWith(p))
+  const isSuperAdmin = SUPER_ADMIN_PATHS.some(p => pathname.startsWith(p))
+
+  if (isTenantAdmin || isSuperAdmin) {
+    if (!user) {
+      return NextResponse.redirect(new URL('/login', request.url))
+    }
+
+    const role = user.app_metadata?.role
+
+    if (isSuperAdmin && role !== 'super_admin') {
+      return NextResponse.redirect(new URL('/', request.url))
+    }
+
+    if (isTenantAdmin && role !== 'admin' && role !== 'staff' && role !== 'super_admin') {
+      return NextResponse.redirect(new URL('/login', request.url))
+    }
+  }
 
   return response
 }
 
 export const config = {
   matcher: [
-    // Skip static files, images, and Next.js internals
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }

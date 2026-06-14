@@ -53,8 +53,19 @@ export default async function BookingPage({
   ) ?? []
 
   return (
-    <main className="min-h-screen bg-offwhite">
-      <div className="max-w-xl mx-auto px-4 py-12">
+    <div className="max-w-6xl mx-auto px-6 py-12">
+      <div className="mb-8">
+        <p className="text-xs font-bold uppercase tracking-widest text-charcoal/40 mb-1">
+          <a href="/book" className="hover:text-rust transition-colors">← Tilbage</a>
+        </p>
+        <h1 className="text-3xl font-black uppercase tracking-tight text-charcoal">
+          {(service as Service).name}
+        </h1>
+        {(service as Service).description && (
+          <p className="text-charcoal/50 mt-1 text-sm">{(service as Service).description}</p>
+        )}
+      </div>
+      <div className="max-w-xl">
         <BookingWizard
           service={service as Service}
           sizeCategories={(sizeCategories as SizeCategory[]) ?? []}
@@ -62,6 +73,6 @@ export default async function BookingPage({
           timeSlots={availableSlots}
         />
       </div>
-    </main>
+    </div>
   )
 }

@@ -4,6 +4,12 @@ import { getTenant } from '@/lib/utils/tenant'
 import { createClient } from '@/lib/supabase/server'
 import type { Service } from '@/lib/types/domain'
 
+const typeLabel: Record<string, string> = {
+  timeslot: 'Tidsbestilling',
+  capacity: 'Kapacitetsbooking',
+  stock:    'Udstyrsleje',
+}
+
 export default async function BookPage() {
   const tenant = await getTenant()
   if (!tenant) notFound()
@@ -17,35 +23,34 @@ export default async function BookPage() {
     .order('sort_order')
 
   return (
-    <main className="min-h-screen bg-offwhite">
-      <div className="max-w-2xl mx-auto px-4 py-12">
-        <h1 className="text-3xl font-bold text-charcoal mb-2">
-          {tenant.config.displayName}
-        </h1>
-        <p className="text-charcoal/60 mb-10">Vælg en ydelse for at booke</p>
-
-        <div className="flex flex-col gap-4">
-          {(services as Service[])?.map(service => (
-            <Link
-              key={service.id}
-              href={`/book/${service.id}`}
-              className="block bg-white rounded-xl p-6 border border-warm-gray hover:border-rust transition-colors group"
-            >
-              <div className="flex items-start justify-between">
-                <div>
-                  <h2 className="text-xl font-semibold text-charcoal group-hover:text-rust transition-colors">
-                    {service.name}
-                  </h2>
-                  {service.description && (
-                    <p className="text-charcoal/60 mt-1 text-sm">{service.description}</p>
-                  )}
-                </div>
-                <span className="text-rust text-xl mt-1">→</span>
-              </div>
-            </Link>
-          ))}
-        </div>
+    <div className="max-w-6xl mx-auto px-6 py-16">
+      <div className="mb-10">
+        <h1 className="text-3xl font-black uppercase tracking-tight text-charcoal">Book</h1>
+        <p className="text-charcoal/40 mt-1 text-sm">{tenant.config.displayName} · Online booking</p>
       </div>
-    </main>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {(services as Service[])?.map(service => (
+          <Link
+            key={service.id}
+            href={`/book/${service.id}`}
+            className="group block bg-white border border-warm-gray hover:border-rust p-8 transition-colors"
+          >
+            <p className="text-xs font-bold uppercase tracking-widest text-charcoal/40 mb-2">
+              {typeLabel[service.type] ?? service.type}
+            </p>
+            <h2 className="text-xl font-black uppercase tracking-tight text-charcoal group-hover:text-rust transition-colors mb-2">
+              {service.name}
+            </h2>
+            {service.description && (
+              <p className="text-charcoal/60 text-sm leading-relaxed">{service.description}</p>
+            )}
+            <p className="mt-4 text-xs font-bold uppercase tracking-widest text-rust group-hover:underline">
+              Book →
+            </p>
+          </Link>
+        ))}
+      </div>
+    </div>
   )
 }

@@ -13,11 +13,14 @@ INSERT INTO tenants (id, name, subdomain, config) VALUES (
   'hundested',
   '{
     "displayName": "Hundested Bådeværft",
-    "contactEmail": "kontakt@hundested-baadevaerft.dk",
+    "contactEmail": "hundested@baadevaerft.com",
+    "contactPhone": "71 99 70 02",
+    "contactAddress": ["Nordre Beddingsvej 47", "DK-3390 Hundested"],
+    "contactHours": "Mandag, onsdag og fredag kl. 8–11",
     "theme": "hundested",
     "cancellationPolicy": "standard"
   }'
-);
+) ON CONFLICT (id) DO UPDATE SET config = EXCLUDED.config;
 
 -- ============================================================
 -- Services
