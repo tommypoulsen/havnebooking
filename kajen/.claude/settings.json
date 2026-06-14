@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run dev)",
+      "Bash(npm run build)",
+      "Bash(npm run lint)",
+      "Bash(npm test*)",
+      "Bash(npm install*)",
+      "Bash(npx supabase *)",
+      "Bash(npx tsc*)",
+      "Bash(npx playwright*)",
+      "Bash(git status)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git add*)",
+      "Bash(git commit*)"
+    ]
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "errs=$(npx tsc --noEmit 2>&1 | grep 'error TS' | head -5); if [ -n \"$errs\" ]; then echo '{\"systemMessage\":\"TypeScript-fejl fundet — kør npx tsc --noEmit for detaljer, eller bed mig om at rette dem\"}'; fi",
+            "timeout": 60,
+            "statusMessage": "Type-check...",
+            "async": true
+          }
+        ]
+      }
+    ]
+  }
+}
