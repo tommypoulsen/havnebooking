@@ -21,17 +21,16 @@ export function SiteHeader({ displayName, logoUrl }: { displayName: string; logo
       <header className="bg-white border-b border-warm-gray relative z-30">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-3" onClick={() => setOpen(false)}>
-            {logoUrl ? (
+            {logoUrl && (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={logoUrl} alt={displayName} className="h-10 w-auto object-contain" />
-            ) : (
-              <div className="flex flex-col leading-tight border-l-2 border-rust pl-3">
-                <span className="text-xs font-black uppercase tracking-widest text-charcoal">{first}</span>
-                {rest.length > 0 && (
-                  <span className="text-xs font-black uppercase tracking-widest text-charcoal">{rest.join(' ')}</span>
-                )}
-              </div>
+              <img src={logoUrl} alt="" className="h-10 w-auto object-contain" />
             )}
+            <div className="flex flex-col leading-tight border-l-2 border-rust pl-3">
+              <span className="text-xs font-black uppercase tracking-widest text-charcoal">{first}</span>
+              {rest.length > 0 && (
+                <span className="text-xs font-black uppercase tracking-widest text-charcoal">{rest.join(' ')}</span>
+              )}
+            </div>
           </Link>
 
           <nav className="hidden md:flex items-center gap-8 text-xs font-bold uppercase tracking-widest">
