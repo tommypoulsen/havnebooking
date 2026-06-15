@@ -2,7 +2,9 @@
 
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
+import { zUuid } from '@/lib/utils/zod'
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 
 const TenantSchema = z.object({
   name:           z.string().min(2).max(100),
@@ -88,6 +90,60 @@ export async function updateTenant(
   }
 
   revalidatePath('/tenants')
+  return null
+}
+
+const CreateUserSchema = z.object({
+  tenant_id: zUuid,
+  full_name: z.string().min(2).max(200).trim(),
+  email:     z.string().email('Ugyldig e-mail').trim().toLowerCase(),
+  password:  z.string().min(8, 'Adgangskode skal være mindst 8 tegn'),
+  role:      z.enum(['admin', 'staff']),
+})
+
+export async function createTenantUser(
+  _prev: string | null | undefined,
+  formData: FormData
+): Promise<string | null> {
+  const parsed = CreateUserSchema.safeParse({
+    tenant_id: formData.get('tenant_id'),
+    full_name: formData.get('full_name'),
+    email:     formData.get('email'),
+    password:  formData.get('password'),
+    role:      formData.get('role'),
+  })
+  if (!parsed.success) return parsed.error.issues[0].message
+
+  const supabase = createServiceClient()
+
+  // Create auth user with role in app_metadata so JWT claims are set on first login
+  const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+    email:         parsed.data.email,
+    password:      parsed.data.password,
+    email_confirm: true,
+    app_metadata:  { role: parsed.data.role, tenant_id: parsed.data.tenant_id },
+  })
+
+  if (authError || !authData.user) {
+    if (authError?.message?.includes('already been registered'))
+      return 'E-mailadressen er allerede registreret'
+    return 'Kunne ikke oprette auth-bruger'
+  }
+
+  const { error: userError } = await supabase.from('users').insert({
+    tenant_id: parsed.data.tenant_id,
+    auth_id:   authData.user.id,
+    email:     parsed.data.email,
+    role:      parsed.data.role,
+    full_name: parsed.data.full_name,
+  })
+
+  if (userError) {
+    await supabase.auth.admin.deleteUser(authData.user.id)
+    return 'Kunne ikke gemme bruger — auth-bruger slettet igen'
+  }
+
+  revalidatePath(`/tenants/${parsed.data.tenant_id}`)
   return null
 }
 
