@@ -48,15 +48,22 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-  // Redirect super admins from root to their dashboard — but only when they are NOT
-  // on a tenant subdomain, so they can still browse tenant sites for preview/support.
+  // Determine whether the request is on a tenant subdomain or the root domain.
+  // Root domain = super-admin portal only; all tenant content lives on subdomains.
   const appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN || 'localhost'
   const hostWithoutPort = (request.headers.get('host') ?? '').split(':')[0]
   const isOnTenantSubdomain =
     hostWithoutPort !== appDomain && hostWithoutPort.endsWith(`.${appDomain}`)
 
-  if (pathname === '/' && role === 'super_admin' && !isOnTenantSubdomain) {
-    return NextResponse.redirect(new URL('/tenants', request.url))
+  if (!isOnTenantSubdomain && !pathname.startsWith('/login') && !pathname.startsWith('/api')) {
+    // Root-domain requests that aren't super-admin paths are redirected to login.
+    // The super-admin auth gate above handles /tenants etc.; this handles everything else
+    // (e.g. "/" on havnebooking.vercel.app) so the tenant layout never 404s on the root.
+    if (role === 'super_admin') {
+      if (pathname === '/') return NextResponse.redirect(new URL('/tenants', request.url))
+    } else if (!isSuperAdmin) {
+      return NextResponse.redirect(new URL('/login', request.url))
+    }
   }
 
   return response
