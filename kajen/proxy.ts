@@ -4,7 +4,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 const TENANT_ADMIN_PATHS = ['/admin']
 const SUPER_ADMIN_PATHS = ['/tenants', '/services-config']
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request })
 
   const supabase = createServerClient(

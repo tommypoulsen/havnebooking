@@ -281,7 +281,7 @@ lib/
   supabase/
     client.ts               # Browser-klient (singleton)
     server.ts               # Server-klient (cookie-baseret)
-    middleware.ts            # Middleware-klient
+    middleware.ts            # Supabase-klient til proxy (request-scoped)
     actions.ts              # login / logout server actions
   types/
     database.ts             # Autogenereret fra Supabase — redigér ikke manuelt

@@ -131,7 +131,7 @@ CREATE POLICY "super_admin_all" ON {tabel}
 ## Komponent-konventioner
 
 - Filnavne: PascalCase for komponenter, kebab-case for routes og utility-filer
-- Ingen default exports undtagen Next.js `page.tsx` / `layout.tsx` / `error.tsx` / `loading.tsx` / `middleware.ts`
+- Ingen default exports undtagen Next.js `page.tsx` / `layout.tsx` / `error.tsx` / `loading.tsx` / `proxy.ts`
 - Props: flade og eksplicitte typer
 - Ingen prop drilling > 2 niveauer — brug composition eller React Context
 - `React.cache()` til dyre gentagende server-side kald i samme request

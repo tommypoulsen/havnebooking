@@ -26,7 +26,7 @@ Ingen separate microservices. Al forretningslogik bor i Next.js Server Actions o
 ## Multi-tenant arkitektur
 
 ### Subdomain-routing
-Tenant resolves fra request-hostname i Next.js middleware:
+Tenant resolves fra request-hostname i Next.js Proxy (`proxy.ts` — middleware er omdøbt i Next.js 16):
 
 ```
 hundested.havnebooking.dk  →  tenant: "hundested"
@@ -40,7 +40,7 @@ Middleware-flow:
 4. Redirect til fejlside hvis subdomain ikke kendes
 
 ```typescript
-// lib/supabase/middleware.ts — skabelon
+// proxy.ts — skabelon
 export async function resolveTenant(request: NextRequest) {
   const host = request.headers.get('host') ?? ''
   const subdomain = host.split('.')[0]
