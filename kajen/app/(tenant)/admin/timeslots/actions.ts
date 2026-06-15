@@ -2,18 +2,19 @@
 
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
+import { zUuid } from '@/lib/utils/zod'
 import { createClient } from '@/lib/supabase/server'
 import { getTenant } from '@/lib/utils/tenant'
 
 const CreateSchema = z.object({
-  service_id: z.string().uuid(),
+  service_id: zUuid,
   date:       z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   time:       z.string().regex(/^\d{2}:\d{2}$/),
   capacity:   z.coerce.number().int().min(1).max(100),
 })
 
 const BatchSchema = z.object({
-  service_id: z.string().uuid(),
+  service_id: zUuid,
   slots: z.array(z.object({
     starts_at: z.string().datetime(),
     capacity:  z.number().int().min(1).max(100),

@@ -2,11 +2,12 @@
 
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
+import { zUuid } from '@/lib/utils/zod'
 import { createClient } from '@/lib/supabase/server'
 import { getTenant } from '@/lib/utils/tenant'
 
 const UpdateSchema = z.object({
-  id:       z.string().uuid(),
+  id:       zUuid,
   price_kr: z.coerce.number().int().min(1),
 })
 

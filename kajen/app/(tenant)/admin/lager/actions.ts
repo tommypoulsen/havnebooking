@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
+import { zUuid } from '@/lib/utils/zod'
 import { createClient } from '@/lib/supabase/server'
 import { getTenant } from '@/lib/utils/tenant'
 
@@ -20,8 +21,8 @@ async function verifyService(
 }
 
 const UpsertSchema = z.object({
-  service_id:       z.string().uuid(),
-  size_category_id: z.string().uuid(),
+  service_id:       zUuid,
+  size_category_id: zUuid,
   total_units:      z.coerce.number().int().min(1).max(9999),
 })
 
@@ -43,6 +44,25 @@ export async function upsertInventory(
   if (!await verifyService(supabase, parsed.data.service_id, tenant.id))
     return 'Ikke autoriseret'
 
+  const { data: activeOrders } = await supabase
+    .from('orders')
+    .select('id')
+    .in('status', ['confirmed', 'pending'])
+
+  const activeOrderIds = activeOrders?.map(o => o.id) ?? []
+  let confirmedCount = 0
+  if (activeOrderIds.length > 0) {
+    const { count } = await supabase
+      .from('order_lines')
+      .select('id', { count: 'exact', head: true })
+      .eq('size_category_id', parsed.data.size_category_id)
+      .in('order_id', activeOrderIds)
+    confirmedCount = count ?? 0
+  }
+
+  if (parsed.data.total_units < confirmedCount)
+    return `Kan ikke sætte kapacitet til ${parsed.data.total_units} — der er ${confirmedCount} aktive bookinger`
+
   const { error } = await supabase
     .from('capacity_inventory')
     .upsert(
@@ -61,7 +81,7 @@ export async function upsertInventory(
 }
 
 const AddSchema = z.object({
-  service_id:  z.string().uuid(),
+  service_id:  zUuid,
   label:       z.string().min(1).max(100).trim(),
   total_units: z.coerce.number().int().min(1).max(9999),
 })

@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useTransition } from 'react'
 import type { Service, SizeCategory, PricingRule, TimeSlot, DurationType } from '@/lib/types/domain'
 import { calculatePrice, formatPrice, daysBetween } from '@/lib/utils/pricing'
+import { createOrder } from './actions'
 
 type Draft = {
   sizeCategoryId: string
@@ -65,6 +66,8 @@ export function BookingWizard({
 }) {
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT)
   const [stepIndex, setStepIndex] = useState(0)
+  const [isPaying, startPayTransition] = useTransition()
+  const [payError, setPayError] = useState<string | null>(null)
 
   const steps = useMemo<Step[]>(() => {
     const s: Step[] = []
@@ -126,6 +129,29 @@ export function BookingWizard({
 
   function back() {
     setStepIndex(i => i - 1)
+  }
+
+  function handlePay() {
+    setPayError(null)
+    startPayTransition(async () => {
+      const result = await createOrder({
+        service_id:       service.id,
+        size_category_id: draft.sizeCategoryId || null,
+        time_slot_id:     draft.timeSlotId || null,
+        start_date:       draft.startDate || null,
+        end_date:         draft.endDate || null,
+        form_answers:     draft.formAnswers,
+        full_name:        draft.fullName,
+        email:            draft.email,
+        phone:            draft.phone,
+      })
+      if (result.error) {
+        setPayError(result.error)
+        return
+      }
+      // result.error was checked above — data is defined
+      window.location.href = result.data!.paymentUrl
+    })
   }
 
   return (
@@ -328,11 +354,15 @@ export function BookingWizard({
               </div>
             )}
           </div>
+          {payError && (
+            <p className="text-sm text-danger mb-4">{payError}</p>
+          )}
           <button
-            className="w-full bg-rust text-offwhite font-semibold py-3 rounded-xl hover:bg-rust-dark transition-colors"
-            onClick={() => alert('Betaling kommer snart — QuickPay integration mangler.')}
+            className="w-full bg-rust text-offwhite font-semibold py-3 rounded-xl hover:bg-rust-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={handlePay}
+            disabled={isPaying}
           >
-            Gå til betaling
+            {isPaying ? 'Opretter booking…' : 'Gå til betaling'}
           </button>
         </div>
       )}

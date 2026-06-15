@@ -4,6 +4,7 @@ import { getTenant } from '@/lib/utils/tenant'
 import { createClient } from '@/lib/supabase/server'
 import { formatPrice } from '@/lib/utils/pricing'
 import type { OrderStatus } from '@/lib/types/domain'
+import { CancelButton } from './CancelButton'
 
 function formatDate(d: string) {
   return new Intl.DateTimeFormat('da-DK', {
@@ -30,7 +31,10 @@ const FILTERS: { value: string; label: string }[] = [
   { value: 'pending',   label: 'Afventer' },
   { value: 'confirmed', label: 'Bekræftet' },
   { value: 'cancelled', label: 'Annulleret' },
+  { value: 'refunded',  label: 'Refunderet' },
 ]
+
+const CANCELLABLE: OrderStatus[] = ['pending', 'confirmed']
 
 export default async function BookingsPage({
   searchParams,
@@ -104,6 +108,7 @@ export default async function BookingsPage({
                 <th className="text-left px-4 py-3 font-medium text-charcoal/60">Oprettet</th>
                 <th className="text-left px-4 py-3 font-medium text-charcoal/60">Status</th>
                 <th className="text-right px-4 py-3 font-medium text-charcoal/60">Total</th>
+                <th className="px-4 py-3" />
               </tr>
             </thead>
             <tbody>
@@ -124,6 +129,11 @@ export default async function BookingsPage({
                   </td>
                   <td className="px-4 py-3 text-right text-rust font-medium whitespace-nowrap">
                     {formatPrice(order.total_oere)}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    {CANCELLABLE.includes(order.status) && (
+                      <CancelButton orderId={order.id} />
+                    )}
                   </td>
                 </tr>
               ))}
