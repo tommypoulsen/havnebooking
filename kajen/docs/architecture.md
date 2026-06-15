@@ -57,18 +57,18 @@ export async function resolveTenant(request: NextRequest) {
 
 ### Dataisolation via RLS
 Alle tabeller har `tenant_id`-kolonne og Row Level Security aktiveret.
-To helper-funktioner bruges i alle RLS-politikker:
+To helper-funktioner bruges i alle RLS-politikker (defineret i `public`-schema, ikke `auth`):
 
 ```sql
 -- Henter tenant_id fra JWT app_metadata (sat ved login)
-CREATE OR REPLACE FUNCTION auth.tenant_id() RETURNS UUID AS $$
+CREATE OR REPLACE FUNCTION current_tenant_id() RETURNS UUID AS $$
   SELECT (auth.jwt() -> 'app_metadata' ->> 'tenant_id')::UUID
-$$ LANGUAGE SQL STABLE;
+$$ LANGUAGE SQL STABLE SECURITY DEFINER;
 
 -- Henter brugerens rolle fra JWT app_metadata
-CREATE OR REPLACE FUNCTION auth.user_role() RETURNS TEXT AS $$
+CREATE OR REPLACE FUNCTION current_user_role() RETURNS TEXT AS $$
   SELECT auth.jwt() -> 'app_metadata' ->> 'role'
-$$ LANGUAGE SQL STABLE;
+$$ LANGUAGE SQL STABLE SECURITY DEFINER;
 ```
 
 Standard RLS-skabelon (bruges på alle tabeller):
@@ -76,10 +76,10 @@ Standard RLS-skabelon (bruges på alle tabeller):
 ALTER TABLE {tabel} ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "tenant_isolation" ON {tabel}
-  USING (tenant_id = auth.tenant_id());
+  USING (tenant_id = current_tenant_id());
 
 CREATE POLICY "super_admin_all" ON {tabel}
-  USING (auth.user_role() = 'super_admin');
+  USING (current_user_role() = 'super_admin');
 ```
 
 ---
@@ -287,7 +287,9 @@ Super-admin er en separat route group `(super-admin)/` med adgang kun for JWT-cl
 |------|----------|
 | `/tenants` | Oversigt over alle tenants |
 | `/tenants/new` | Opret ny tenant (navn, subdomæne, kontaktinfo) |
-| `/tenants/[id]` | Rediger tenant, aktivér/deaktivér |
+| `/tenants/[id]` | Rediger tenant, aktivér/deaktivér, administrer brugere |
+
+`/tenants/[id]` indeholder bruger-administration: opret admin/staff-bruger, rediger navn/email/rolle, slet bruger, nulstil adgangskode. Operationer anvender `createServiceClient()` (service role) da de rammer `supabase.auth.admin`-API'et.
 
 Subdomain valideres med regex `^[a-z0-9-]+$` og `23505`-fejlkode fra Supabase bruges til at opdage duplikate subdomæner.
 

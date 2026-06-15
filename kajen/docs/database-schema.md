@@ -10,6 +10,8 @@ Aldrig ændr eksisterende migrationsfiler — tilføj altid en ny.
 
 ## Helper-funktioner (oprettes én gang i `00001_init.sql`)
 
+Supabase begrænser ændringer i `auth`-skemaet, så helpers lever i `public`:
+
 ```sql
 -- Trigger-funktion til updated_at
 CREATE OR REPLACE FUNCTION set_updated_at()
@@ -18,14 +20,14 @@ BEGIN NEW.updated_at = NOW(); RETURN NEW; END;
 $$ LANGUAGE plpgsql;
 
 -- Henter tenant_id fra JWT app_metadata
-CREATE OR REPLACE FUNCTION auth.tenant_id() RETURNS UUID AS $$
+CREATE OR REPLACE FUNCTION current_tenant_id() RETURNS UUID AS $$
   SELECT (auth.jwt() -> 'app_metadata' ->> 'tenant_id')::UUID
-$$ LANGUAGE SQL STABLE;
+$$ LANGUAGE SQL STABLE SECURITY DEFINER;
 
 -- Henter brugerens rolle fra JWT app_metadata
-CREATE OR REPLACE FUNCTION auth.user_role() RETURNS TEXT AS $$
+CREATE OR REPLACE FUNCTION current_user_role() RETURNS TEXT AS $$
   SELECT auth.jwt() -> 'app_metadata' ->> 'role'
-$$ LANGUAGE SQL STABLE;
+$$ LANGUAGE SQL STABLE SECURITY DEFINER;
 ```
 
 ---
@@ -49,9 +51,13 @@ CREATE TRIGGER tenants_updated_at
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 ALTER TABLE tenants ENABLE ROW LEVEL SECURITY;
--- Super admin kan alt; en tenant kan læse sin egen række
-CREATE POLICY "super_admin_all"    ON tenants USING (auth.user_role() = 'super_admin');
-CREATE POLICY "tenant_read_own"    ON tenants FOR SELECT USING (id = auth.tenant_id());
+-- Super admin kan alt; en tenant kan læse sin egen (og alle aktive) rækker
+CREATE POLICY "super_admin_all"    ON tenants USING (current_user_role() = 'super_admin');
+CREATE POLICY "tenant_read_own"    ON tenants FOR SELECT USING (id = current_tenant_id());
+CREATE POLICY "public_read_active" ON tenants FOR SELECT USING (active = true);
+-- Admin/staff kan opdatere deres egen tenant (logo, tema, indstillinger) — migration 00009
+CREATE POLICY "admin_update_own"   ON tenants FOR UPDATE
+  USING (id = current_tenant_id() AND current_user_role() IN ('admin', 'staff'));
 ```
 
 `config` JSONB-eksempel:
@@ -72,7 +78,7 @@ CREATE POLICY "tenant_read_own"    ON tenants FOR SELECT USING (id = auth.tenant
 CREATE TABLE users (
   id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id  UUID NOT NULL REFERENCES tenants(id),
-  auth_id    UUID NOT NULL UNIQUE,           -- Supabase Auth UUID
+  auth_id    UUID UNIQUE,                    -- Supabase Auth UUID; nullable for guest bookings (migration 00008)
   email      TEXT NOT NULL,
   role       TEXT NOT NULL CHECK (role IN ('admin', 'staff', 'customer')),
   full_name  TEXT,
@@ -389,3 +395,35 @@ CREATE UNIQUE INDEX idx_payments_provider_ref ON payments(provider_reference);
 `time_slots.booked_count` opdateres med `UPDATE ... SET booked_count = booked_count + 1 WHERE id = $1 AND booked_count < capacity RETURNING id` inden for en transaktion.
 Hvis 0 rækker returneres: kapaciteten er nået — returner fejl til brugeren.
 Dette er optimistic locking — undgår eksplicit row-lock under høj load.
+
+---
+
+## Hjælpe-funktioner til booked_count (migrationer 00006–00007)
+
+Kaldes fra Server Actions ved annullering og fra QuickPay-webhook ved bekræftelse:
+
+```sql
+-- Dekrementér sikkert (aldrig under 0) — bruges ved annullering
+CREATE OR REPLACE FUNCTION decrement_booked_count(slot_id UUID)
+RETURNS void AS $$
+  UPDATE time_slots
+  SET booked_count = GREATEST(0, booked_count - 1)
+  WHERE id = slot_id;
+$$ LANGUAGE SQL;
+
+-- Inkrementér atomisk — returnerer FALSE hvis pladsen allerede er optaget
+CREATE OR REPLACE FUNCTION increment_booked_count(slot_id UUID)
+RETURNS BOOLEAN AS $$
+DECLARE
+  rows_updated INTEGER;
+BEGIN
+  UPDATE time_slots
+  SET booked_count = booked_count + 1
+  WHERE id = slot_id AND booked_count < capacity;
+  GET DIAGNOSTICS rows_updated = ROW_COUNT;
+  RETURN rows_updated > 0;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+Begge kører `SECURITY INVOKER` — RLS på `time_slots` gælder stadig.

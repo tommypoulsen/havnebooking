@@ -19,6 +19,7 @@ Stack: Next.js 16 · React 19 · TypeScript strict · Tailwind CSS v4 · Supabas
 
 ```bash
 npm install
+npx playwright install chromium   # kun nødvendigt for e2e tests
 ```
 
 ### 2. Konfigurér miljøvariable
@@ -27,7 +28,9 @@ npm install
 cp .env.example .env.local
 ```
 
-Åbn `.env.local` og udfyld alle værdier.
+Åbn `.env.local` og udfyld alle værdier. Vigtige noter:
+- `NEXT_PUBLIC_APP_DOMAIN`: lad være **tom** i lokalt udviklermiljø — middleware bruger da `localhost` som rod-domæne
+- `E2E_SUPER_EMAIL` / `E2E_SUPER_PASSWORD`: skal matche den super-admin bruger du opretter i trin 4
 
 ### 3. Kør migrationer og seed-data
 
@@ -167,6 +170,10 @@ Kræver JWT-claim `role = super_admin`. Ingen tenant-scope.
 | Opret tenant | `createTenant(formData)` — validerer subdomæne (kun `[a-z0-9-]`) |
 | Opdater tenant | `updateTenant(formData)` — opdaterer navn og `config` JSONB |
 | Skift aktiv-status | `toggleTenantActive(formData)` — flipper `active`-flag |
+| Opret bruger | `createTenantUser(formData)` — opretter Supabase Auth-bruger + users-række |
+| Rediger bruger | `updateTenantUser(formData)` — opdaterer navn, email, rolle i DB og auth.app_metadata |
+| Slet bruger | `deleteTenantUser(formData)` — sletter users-række og Supabase Auth-bruger |
+| Nulstil adgangskode | `resetTenantUserPassword(formData)` — sætter ny adgangskode via `auth.admin.updateUserById` |
 
 ### API — Webhooks
 

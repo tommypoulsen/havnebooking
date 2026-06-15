@@ -117,13 +117,13 @@ created_at TIMESTAMPTZ DEFAULT NOW()
 ```
 Mutable tabeller har desuden `updated_at TIMESTAMPTZ` (via trigger `set_updated_at()`).
 
-RLS-skabelon per tabel:
+RLS-skabelon per tabel (helpers `current_tenant_id()` og `current_user_role()` er defineret i `public`-schema i `00001_init.sql`):
 ```sql
 ALTER TABLE {tabel} ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "tenant_isolation" ON {tabel}
-  USING (tenant_id = auth.tenant_id());
+  USING (tenant_id = current_tenant_id());
 CREATE POLICY "super_admin_all" ON {tabel}
-  USING (auth.user_role() = 'super_admin');
+  USING (current_user_role() = 'super_admin');
 ```
 
 ---
