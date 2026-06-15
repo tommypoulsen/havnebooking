@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { createBrowserClient } from '@supabase/ssr'
 import { updateLogoUrl, removeLogo } from './actions'
 
@@ -9,6 +10,7 @@ export function LogoUpload({ tenantId, currentLogoUrl }: { tenantId: string; cur
   const [preview, setPreview] = useState<string | null>(currentLogoUrl ?? null)
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+  const router = useRouter()
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -44,14 +46,16 @@ export function LogoUpload({ tenantId, currentLogoUrl }: { tenantId: string; cur
       const err = await updateLogoUrl(data.publicUrl)
       if (err) { setError(err); return }
       setPreview(data.publicUrl)
+      router.refresh()
     })
   }
 
   function handleRemove() {
     startTransition(async () => {
       const err = await removeLogo()
-      if (!err) setPreview(null)
-      else setError(err)
+      if (err) { setError(err); return }
+      setPreview(null)
+      router.refresh()
     })
   }
 
