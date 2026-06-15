@@ -205,6 +205,7 @@ export function BookingWizard({
               {timeSlots.map(slot => (
                 <button
                   key={slot.id}
+                  data-testid="time-slot"
                   onClick={() => update({ timeSlotId: slot.id })}
                   className={`text-left p-4 rounded-xl border-2 transition-colors ${
                     draft.timeSlotId === slot.id
@@ -324,7 +325,7 @@ export function BookingWizard({
 
       {/* Step: Summary */}
       {currentStep === 'summary' && (
-        <div>
+        <div data-testid="booking-summary">
           <h2 className="text-lg font-semibold text-charcoal mb-4">Opsummering</h2>
           <div className="bg-white rounded-xl border border-warm-gray divide-y divide-warm-gray mb-6">
             <Row label="Ydelse" value={service.name} />

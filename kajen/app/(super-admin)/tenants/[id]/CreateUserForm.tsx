@@ -7,21 +7,21 @@ export function CreateUserForm({ tenantId }: { tenantId: string }) {
   const [error, formAction, isPending] = useActionState(createTenantUser, null)
 
   return (
-    <form action={formAction} className="grid grid-cols-2 gap-3 pt-4 border-t border-warm-gray">
+    <form aria-label="Opret bruger" action={formAction} className="grid grid-cols-2 gap-3 pt-4 border-t border-warm-gray">
       <input type="hidden" name="tenant_id" value={tenantId} />
 
-      <div className="col-span-2 sm:col-span-1">
-        <label className="block text-xs font-medium text-charcoal/60 mb-1">Navn</label>
+      <label className="col-span-2 sm:col-span-1 flex flex-col gap-1">
+        <span className="text-xs font-medium text-charcoal/60">Navn</span>
         <input
           name="full_name"
           required
           className="w-full border border-warm-gray rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-charcoal/20"
           placeholder="Fornavn Efternavn"
         />
-      </div>
+      </label>
 
-      <div className="col-span-2 sm:col-span-1">
-        <label className="block text-xs font-medium text-charcoal/60 mb-1">E-mail</label>
+      <label className="col-span-2 sm:col-span-1 flex flex-col gap-1">
+        <span className="text-xs font-medium text-charcoal/60">E-mail</span>
         <input
           name="email"
           type="email"
@@ -29,10 +29,10 @@ export function CreateUserForm({ tenantId }: { tenantId: string }) {
           className="w-full border border-warm-gray rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-charcoal/20"
           placeholder="navn@havn.dk"
         />
-      </div>
+      </label>
 
-      <div className="col-span-2 sm:col-span-1">
-        <label className="block text-xs font-medium text-charcoal/60 mb-1">Adgangskode</label>
+      <label className="col-span-2 sm:col-span-1 flex flex-col gap-1">
+        <span className="text-xs font-medium text-charcoal/60">Adgangskode</span>
         <input
           name="password"
           type="password"
@@ -41,10 +41,10 @@ export function CreateUserForm({ tenantId }: { tenantId: string }) {
           className="w-full border border-warm-gray rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-charcoal/20"
           placeholder="Min. 8 tegn"
         />
-      </div>
+      </label>
 
-      <div className="col-span-2 sm:col-span-1">
-        <label className="block text-xs font-medium text-charcoal/60 mb-1">Rolle</label>
+      <label className="col-span-2 sm:col-span-1 flex flex-col gap-1">
+        <span className="text-xs font-medium text-charcoal/60">Rolle</span>
         <select
           name="role"
           className="w-full border border-warm-gray rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-charcoal/20 bg-white"
@@ -52,7 +52,7 @@ export function CreateUserForm({ tenantId }: { tenantId: string }) {
           <option value="admin">Admin</option>
           <option value="staff">Staff</option>
         </select>
-      </div>
+      </label>
 
       {error && (
         <p className="col-span-2 text-xs text-danger">{error}</p>

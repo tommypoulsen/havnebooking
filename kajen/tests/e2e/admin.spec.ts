@@ -6,8 +6,8 @@ const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD ?? 'e2e-testpass-123'
 test('admin can log in and view the bookings list', async ({ page }) => {
   // Log in
   await page.goto('/login')
-  await page.locator('input[name="email"]').fill(ADMIN_EMAIL)
-  await page.locator('input[name="password"]').fill(ADMIN_PASSWORD)
+  await page.getByLabel('E-mail').fill(ADMIN_EMAIL)
+  await page.getByLabel('Adgangskode').fill(ADMIN_PASSWORD)
   await page.getByRole('button', { name: 'Log ind' }).click()
 
   // Login redirects to /admin/timeslots
