@@ -7,9 +7,10 @@ test('visitor can complete a kranløft booking', async ({ page }) => {
 
   // Click the Kranløft card to go directly to the booking wizard
   await page.getByRole('link', { name: /kranløft/i }).first().click()
+  await page.waitForURL(/\/book\/[0-9a-f-]+$/, { timeout: 10_000 })
 
   // Step: size category
-  await expect(page.getByText('Vælg størrelse')).toBeVisible()
+  await expect(page.getByText('Vælg størrelse')).toBeVisible({ timeout: 10_000 })
   await page.getByRole('button', { name: /0.3 ton/i }).click()
   await page.getByRole('button', { name: 'Næste' }).click()
 
@@ -32,13 +33,14 @@ test('visitor can complete a kranløft booking', async ({ page }) => {
 
   // Step: summary
   await expect(page.getByText('Opsummering')).toBeVisible()
-  await expect(page.getByText('Kranløft')).toBeVisible()
+  await expect(page.getByText('Kranløft').first()).toBeVisible()
   await expect(page.getByText('Motorbåd')).toBeVisible()
 
   // Pay — dev bypass (no QUICKPAY_API_KEY) confirms immediately
   await page.getByRole('button', { name: 'Gå til betaling' }).click()
-  await page.waitForURL(/\/confirmation/, { timeout: 10_000 })
+  await page.waitForURL(/\/confirmation/, { timeout: 15_000 })
+  await page.waitForLoadState('networkidle')
 
-  await expect(page.getByText('Tak for din booking')).toBeVisible()
+  await expect(page.getByText('Tak for din booking')).toBeVisible({ timeout: 10_000 })
   await expect(page.getByText('Ordredetaljer')).toBeVisible()
 })

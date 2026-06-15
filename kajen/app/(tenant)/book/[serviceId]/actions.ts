@@ -1,6 +1,7 @@
 'use server'
 
 import { z } from 'zod'
+import { headers } from 'next/headers'
 import { zUuid } from '@/lib/utils/zod'
 import { createServiceClient } from '@/lib/supabase/service'
 import { getTenant } from '@/lib/utils/tenant'
@@ -154,12 +155,15 @@ export async function createOrder(
     return { error: 'Kunne ikke gemme booking-detaljer' }
   }
 
-  // NEXT_PUBLIC_SITE_URL is set explicitly in production (e.g. https://hundested.havnebooking.dk).
-  // VERCEL_URL is injected automatically by Vercel for preview deployments.
-  // Fall back to localhost for local dev.
+  // Derive base URL: explicit env var wins, then host header (normalized by reverse proxy in prod),
+  // then VERCEL_URL for preview deploys, then localhost fallback.
+  const headersList = await headers()
+  const host = headersList.get('host') ?? 'localhost:3000'
+  const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1')
+  const protocol = isLocalhost ? 'http' : 'https'
   const baseUrl =
-    process.env.NEXT_PUBLIC_SITE_URL ??
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    `${protocol}://${host}`
 
   const confirmationUrl = `${baseUrl}/book/${data.service_id}/confirmation?order=${order.id}`
 

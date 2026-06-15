@@ -12,7 +12,7 @@ test('admin can log in and view the bookings list', async ({ page }) => {
 
   // Login redirects to /admin/timeslots
   await page.waitForURL('/admin/timeslots', { timeout: 10_000 })
-  await expect(page.getByText('Tidspunkter')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Tidspunkter' })).toBeVisible()
 
   // Navigate to bookings
   await page.goto('/admin/bookings')
