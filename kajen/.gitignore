@@ -17,6 +17,8 @@
 
 # testing / coverage
 /coverage
+/test-results
+/playwright-report
 
 # env files
 .env
@@ -52,6 +54,10 @@ desktop.ini
 # editors
 .vscode/
 .idea/
+.obsidian/
+
+# working notes / local docs
+arbejdsdokumentation/
 *.suo
 *.ntvs*
 *.njsproj

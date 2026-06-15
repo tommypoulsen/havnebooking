@@ -57,18 +57,18 @@ export async function resolveTenant(request: NextRequest) {
 
 ### Dataisolation via RLS
 Alle tabeller har `tenant_id`-kolonne og Row Level Security aktiveret.
-To helper-funktioner bruges i alle RLS-politikker:
+To helper-funktioner bruges i alle RLS-politikker (defineret i `public`-schema, ikke `auth`):
 
 ```sql
 -- Henter tenant_id fra JWT app_metadata (sat ved login)
-CREATE OR REPLACE FUNCTION auth.tenant_id() RETURNS UUID AS $$
+CREATE OR REPLACE FUNCTION current_tenant_id() RETURNS UUID AS $$
   SELECT (auth.jwt() -> 'app_metadata' ->> 'tenant_id')::UUID
-$$ LANGUAGE SQL STABLE;
+$$ LANGUAGE SQL STABLE SECURITY DEFINER;
 
 -- Henter brugerens rolle fra JWT app_metadata
-CREATE OR REPLACE FUNCTION auth.user_role() RETURNS TEXT AS $$
+CREATE OR REPLACE FUNCTION current_user_role() RETURNS TEXT AS $$
   SELECT auth.jwt() -> 'app_metadata' ->> 'role'
-$$ LANGUAGE SQL STABLE;
+$$ LANGUAGE SQL STABLE SECURITY DEFINER;
 ```
 
 Standard RLS-skabelon (bruges på alle tabeller):
@@ -76,10 +76,10 @@ Standard RLS-skabelon (bruges på alle tabeller):
 ALTER TABLE {tabel} ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "tenant_isolation" ON {tabel}
-  USING (tenant_id = auth.tenant_id());
+  USING (tenant_id = current_tenant_id());
 
 CREATE POLICY "super_admin_all" ON {tabel}
-  USING (auth.user_role() = 'super_admin');
+  USING (current_user_role() = 'super_admin');
 ```
 
 ---
@@ -255,6 +255,46 @@ Vis priser til brugere i kroner: `totalOere / 100` (undgå `toFixed` — brug `I
 
 ---
 
+## Farveskema-system
+
+Hvert tenant kan vælge ét af fem foruddefinerede farveskemaer via admin → Indstillinger.
+
+Et skema (`Palette` i `lib/utils/palettes.ts`) definerer syv CSS custom properties der tilsammen styrer hele websitets udseende — ikke kun accent-farven:
+
+```typescript
+type PaletteVars = {
+  '--color-rust':         string  // accent / CTA-knapper / links
+  '--color-rust-dark':    string  // accent hover
+  '--color-rust-light':   string  // accent dæmpet
+  '--color-charcoal':     string  // mørke flader: header, footer, admin-nav
+  '--color-charcoal-mid': string  // mørk hover
+  '--color-offwhite':     string  // sidebaggrund
+  '--color-warm-gray':    string  // borders og skillelinjer
+}
+```
+
+Properties injiceres som inline-styles på `#theme-root`-div'en i `(tenant)/layout.tsx` ved server-rendering. Når admin vælger et nyt skema, opdaterer `PalettePicker` variablerne direkte på DOM-elementet via `element.style.setProperty()` for øjeblikkelig feedback, mens Server Action gemmer valget til databasen.
+
+Logo-upload sker direkte fra browseren via Supabase Storage (`logos`-bucket, public). Den offentlige URL gemmes i `tenant.config.logoUrl` og vises i `SiteHeader` og `SiteFooter`.
+
+---
+
+## Super-admin
+
+Super-admin er en separat route group `(super-admin)/` med adgang kun for JWT-claim `role = super_admin`.
+
+| Rute | Funktion |
+|------|----------|
+| `/tenants` | Oversigt over alle tenants |
+| `/tenants/new` | Opret ny tenant (navn, subdomæne, kontaktinfo) |
+| `/tenants/[id]` | Rediger tenant, aktivér/deaktivér, administrer brugere |
+
+`/tenants/[id]` indeholder bruger-administration: opret admin/staff-bruger, rediger navn/email/rolle, slet bruger, nulstil adgangskode. Operationer anvender `createServiceClient()` (service role) da de rammer `supabase.auth.admin`-API'et.
+
+Subdomain valideres med regex `^[a-z0-9-]+$` og `23505`-fejlkode fra Supabase bruges til at opdage duplikate subdomæner.
+
+---
+
 ## Komponent-arkitektur
 
 ### Server Components (standard)
@@ -335,7 +375,10 @@ Minimum inden release:
 - Booking-flow: happy path (vælg service → betal → bekræftelse)
 - Booking-flow: fuldt timeslot viser "Optaget"
 - Booking-flow: afbestilling og refundering
-- Admin: opret/rediger/slet tidsvinduer og stativkapacitet
+- Admin: opret/rediger/slet tidsvinduer
+- Admin: rediger kapacitet i lager
+- Admin: upload logo og skift farveskema
+- Super-admin: opret og rediger tenant
 - Auth: login, logout, adgangskontrol (rolle-baseret)
 
 Playwright kører mod lokal dev-server med `supabase/seed.sql` test-tenant.
@@ -353,6 +396,6 @@ Seed-data i `supabase/seed.sql` nulstilles mellem test-suites.
 
 **Ny tenant:** Opret row i `tenants`, sæt subdomain, konfigurér services og priser i admin-panel.
 **Ny servicetype:** Opret service med korrekt `type`, konfigurér `config.formFields` i admin — ingen kodeændringer.
-**Ny tenant-tema:** Tilføj `@theme`-tokens i `globals.css` + sæt `config.theme` i tenant-row.
+**Ny tenant-tema:** Tilføj en ny nøgle i `lib/utils/palettes.ts` med et komplet sæt af 7 CSS custom properties. Sæt `config.theme` til den nye nøgle i tenant-row — ingen `globals.css`-ændringer nødvendigt.
 **MobilePay:** Tilgås via QuickPay's MobilePay-integration — ingen separat integration nødvendig.
 **Internationale markeder:** Kræver i18n-lag og multi-currency — ikke i scope p.t.

@@ -17,7 +17,7 @@ Kør igennem denne liste. Ét "nej" = ret det inden du rapporterer færdig.
 **Kode-kvalitet**
 - [ ] Ingen `any`-typer; ingen `as`-casts uden forklaring i kommentar
 - [ ] Priser i øre (integer), aldrig float eller decimaltal
-- [ ] Farver via `@theme`-tokens, aldrig hardkodede hex/rgb
+- [ ] Farver via `@theme`-tokens, aldrig hardkodede hex/rgb eller Tailwind-standardfarver (fx `bg-green-100`). Brug semantiske tokens til status: `bg-success-bg text-success`, `bg-danger-bg text-danger`
 - [ ] Zod-validering på alle API-grænser og webhook-payloads
 
 **Simplicitet**

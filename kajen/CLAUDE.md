@@ -36,37 +36,50 @@ Produktionskode: `/app/`, `/lib/`, `/supabase/`, `/tests/`
 app/
   (auth)/              # Login, register — ingen tenant-layout
   (tenant)/            # Tenant-sider — subdomain resolved i middleware
+    layout.tsx         # Loader tenant, injicerer farveskema (#theme-root), SiteHeader/SiteFooter
+    page.tsx           # Forside
+    priser/            # Prisoversigt
+    kontakt/           # Kontaktside
     book/              # Booking-flow (slutbruger)
     admin/             # Tenant-admin panel (role: admin | staff)
-    priser/
-    kontakt/
-    layout.tsx         # Loader tenant config fra subdomain
+      timeslots/       # Opret/slet tidspunkter
+      bookings/        # Ordreliste med statusfilter
+      pricing/         # Prisniveauer (vises/gemmes i kr)
+      lager/           # Kapacitetsstyring (capacity_inventory)
+      settings/        # Logo-upload + farveskema-vælger
   (super-admin)/       # Super admin (JWT claim: role = super_admin)
+    tenants/           # CRUD — liste, opret, rediger, aktivér/deaktivér
   api/
     webhooks/
       quickpay/route.ts  # QuickPay callback
-  globals.css          # @theme tokens
+  components/
+    SiteHeader.tsx     # Offentlig header (logo eller tekst, burger-menu)
+    SiteFooter.tsx     # Offentlig footer med kontaktinfo
+  globals.css          # @theme tokens + semantiske status-farver (success/danger)
   layout.tsx
 lib/
   supabase/
     client.ts          # Browser Supabase client (singleton)
     server.ts          # Server Supabase client (cookie-baseret)
     middleware.ts      # Middleware Supabase client
+    actions.ts         # login / logout server actions
   types/
     database.ts        # Autogenereret fra Supabase — redigér IKKE manuelt
-    domain.ts          # Domænetyper (Booking, Order, Tenant …)
+    domain.ts          # Domænetyper (Tenant, Service, Order, …)
   utils/
+    tenant.ts          # getTenant() med React.cache() deduplication
+    palettes.ts        # 5 farveskemaer — hvert med 7 CSS custom properties
     pricing.ts         # Prisberegning — ren funktion, ingen side effects
     availability.ts    # Tilgængelighed — ren funktion
     cancellation.ts    # Refunderingslogik — ren funktion
 supabase/
-  migrations/          # Nummereret SQL: 00001_init.sql, 00002_rls.sql …
-  seed.sql             # Testdata (Hundested test-tenant)
+  migrations/          # Nummereret SQL: 00001_init.sql … 00005_storage_logos.sql
+  seed.sql             # Testdata inkl. demo-tidspunkter for Kranløft
 tests/
   unit/                # Vitest unit-tests (pricing, availability, cancellation)
   integration/         # API/webhook tests mod rigtig Supabase test-tenant
   e2e/                 # Playwright e2e — kræves inden release
-prototype/             # REDIGÉR IKKE — reference-prototype
+prototype/             # REDIGÉR IKKE — reference-prototype (ingen package.json)
 docs/
   architecture.md      # Arkitektur og mønstre — læs ved backend/DB-opgaver
   database-schema.md   # Fuld SQL + RLS — læs ved migrationer og forespørgsler
@@ -84,7 +97,7 @@ docs/
 4. **Betaling** — KUN QuickPay. Stripe eksisterer ikke i dette projekt.
 5. **Kortdata** — Gem aldrig betalingskortdata. QuickPay er PCI-compliant og håndterer det.
 6. **Typer** — Ingen `any`. Brug Zod til validering ved alle ydre grænser.
-7. **Farver** — Altid `@theme`-tokens. Aldrig hardkodede hex/rgb-værdier i Tailwind-klasser.
+7. **Farver** — Altid `@theme`-tokens. Aldrig hardkodede hex/rgb-værdier eller Tailwind-standardfarver (fx `bg-green-100`). Brug semantiske tokens til status: `text-success`, `bg-success-bg`, `text-danger`, `bg-danger-bg` (defineret i `globals.css`). Farveskemaer defineres i `lib/utils/palettes.ts` — tilføj ikke nye farveskemaer i `globals.css`.
 8. **Priser** — Opbevar altid priser i **øre** (integer) for at undgå floating point.
 9. **Prototype** — `/prototype/` er reference. Redigér den ikke; kopier ikke blindt fra den.
 10. **Migrationer** — Aldrig ændr eksisterende migrationsfiler. Tilføj altid en ny fil.
@@ -104,13 +117,13 @@ created_at TIMESTAMPTZ DEFAULT NOW()
 ```
 Mutable tabeller har desuden `updated_at TIMESTAMPTZ` (via trigger `set_updated_at()`).
 
-RLS-skabelon per tabel:
+RLS-skabelon per tabel (helpers `current_tenant_id()` og `current_user_role()` er defineret i `public`-schema i `00001_init.sql`):
 ```sql
 ALTER TABLE {tabel} ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "tenant_isolation" ON {tabel}
-  USING (tenant_id = auth.tenant_id());
+  USING (tenant_id = current_tenant_id());
 CREATE POLICY "super_admin_all" ON {tabel}
-  USING (auth.user_role() = 'super_admin');
+  USING (current_user_role() = 'super_admin');
 ```
 
 ---
