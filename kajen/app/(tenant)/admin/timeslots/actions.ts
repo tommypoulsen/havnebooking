@@ -93,7 +93,9 @@ export async function createTimeSlotsFromSchedule(
 }
 
 export async function deleteTimeSlot(formData: FormData): Promise<void> {
-  const id = formData.get('id') as string
+  const parsed = zUuid.safeParse(formData.get('id'))
+  if (!parsed.success) return
+  const id = parsed.data
 
   const supabase = await createClient()
   const tenant = await getTenant()

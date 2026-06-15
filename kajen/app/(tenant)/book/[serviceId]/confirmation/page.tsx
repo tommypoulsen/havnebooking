@@ -2,14 +2,17 @@ import { notFound } from 'next/navigation'
 import { getTenant } from '@/lib/utils/tenant'
 import { createServiceClient } from '@/lib/supabase/service'
 import { formatPrice } from '@/lib/utils/pricing'
+import { zUuid } from '@/lib/utils/zod'
 
 export default async function ConfirmationPage({
   searchParams,
 }: {
   searchParams: Promise<{ order?: string }>
 }) {
-  const { order: orderId } = await searchParams
-  if (!orderId) notFound()
+  const { order: rawOrderId } = await searchParams
+  const parsed = zUuid.safeParse(rawOrderId)
+  if (!parsed.success) notFound()
+  const orderId = parsed.data
 
   const tenant = await getTenant()
   if (!tenant) notFound()

@@ -1,6 +1,5 @@
 'use server'
 
-import { headers } from 'next/headers'
 import { z } from 'zod'
 import { zUuid } from '@/lib/utils/zod'
 import { createServiceClient } from '@/lib/supabase/service'
@@ -14,7 +13,7 @@ const CreateOrderSchema = z.object({
   time_slot_id:     zUuid.nullable(),
   start_date:       z.string().nullable(),
   end_date:         z.string().nullable(),
-  form_answers:     z.record(z.string(), z.string()),
+  form_answers:     z.record(z.string().max(100), z.string().max(1000)),
   full_name:        z.string().min(2).max(200).trim(),
   email:            z.string().email().trim().toLowerCase(),
   phone:            z.string().min(5).max(50).trim(),
@@ -155,11 +154,12 @@ export async function createOrder(
     return { error: 'Kunne ikke gemme booking-detaljer' }
   }
 
-  // Build base URL from request host (works locally and in production)
-  const headersList = await headers()
-  const host = headersList.get('host') ?? 'localhost:3000'
-  const protocol = host.includes('localhost') ? 'http' : 'https'
-  const baseUrl = `${protocol}://${host}`
+  // NEXT_PUBLIC_SITE_URL is set explicitly in production (e.g. https://hundested.havnebooking.dk).
+  // VERCEL_URL is injected automatically by Vercel for preview deployments.
+  // Fall back to localhost for local dev.
+  const baseUrl =
+    process.env.NEXT_PUBLIC_SITE_URL ??
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
 
   const confirmationUrl = `${baseUrl}/book/${data.service_id}/confirmation?order=${order.id}`
 
