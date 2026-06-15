@@ -50,7 +50,7 @@ export async function middleware(request: NextRequest) {
 
   // Redirect super admins from root to their dashboard — but only when they are NOT
   // on a tenant subdomain, so they can still browse tenant sites for preview/support.
-  const appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN ?? 'localhost'
+  const appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN || 'localhost'
   const hostWithoutPort = (request.headers.get('host') ?? '').split(':')[0]
   const isOnTenantSubdomain =
     hostWithoutPort !== appDomain && hostWithoutPort.endsWith(`.${appDomain}`)
