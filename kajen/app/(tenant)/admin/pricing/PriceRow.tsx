@@ -41,7 +41,7 @@ export function PriceRow({
           <button
             type="submit"
             disabled={isPending}
-            className="text-xs bg-rust text-offwhite px-3 py-1 rounded-lg hover:bg-rust-dark transition-colors disabled:opacity-50"
+            className="text-xs text-rust hover:text-rust-dark font-medium disabled:opacity-50 transition-colors"
           >
             {isPending ? '…' : 'Gem'}
           </button>

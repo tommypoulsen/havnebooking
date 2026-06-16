@@ -26,7 +26,7 @@ export function CancelButton({ orderId }: { orderId: string }) {
       <button
         type="submit"
         disabled={isPending}
-        className="text-xs border border-danger text-danger px-2 py-0.5 rounded hover:bg-danger-bg disabled:opacity-40 transition-colors whitespace-nowrap"
+        className="text-xs text-danger hover:text-danger/70 disabled:opacity-40 transition-colors whitespace-nowrap"
       >
         {isPending ? 'Annullerer…' : 'Annuller'}
       </button>
