@@ -78,8 +78,10 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  // Super-admin landing on the root domain goes straight to their dashboard.
-  if (pathname === '/' && role === 'super_admin' && !isOnTenantSubdomain) {
+  // Super-admin landing on the root domain goes straight to their dashboard,
+  // unless they have a tenant-override cookie (explicitly browsing a tenant site).
+  const hasTenantOverride = request.cookies.has('tenant-override')
+  if (pathname === '/' && role === 'super_admin' && !isOnTenantSubdomain && !hasTenantOverride) {
     return NextResponse.redirect(new URL('/tenants', request.url))
   }
 
