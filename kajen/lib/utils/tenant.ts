@@ -14,7 +14,12 @@ function extractSubdomain(host: string): string {
 export const getTenant = cache(async (): Promise<Tenant | null> => {
   const headersList = await headers()
   const host = headersList.get('host') ?? ''
-  const subdomain = extractSubdomain(host)
+
+  // x-tenant-override is set by proxy.ts when ?tenant= is present — lets developers
+  // test tenant sites on the root domain (e.g. ?tenant=hundested) without a subdomain.
+  // RLS via JWT still enforces data isolation; this only affects which UI is shown.
+  const tenantOverride = headersList.get('x-tenant-override')
+  const subdomain = tenantOverride ?? extractSubdomain(host)
 
   const supabase = await createClient()
   const { data } = await supabase

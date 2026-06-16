@@ -5,7 +5,12 @@ const TENANT_ADMIN_PATHS = ['/admin']
 const SUPER_ADMIN_PATHS = ['/tenants', '/services-config']
 
 export async function proxy(request: NextRequest) {
-  let response = NextResponse.next({ request })
+  // Forward ?tenant= param as a header so getTenant() can use it without access to searchParams.
+  const tenantOverride = request.nextUrl.searchParams.get('tenant')
+  const requestHeaders = new Headers(request.headers)
+  if (tenantOverride) requestHeaders.set('x-tenant-override', tenantOverride)
+
+  let response = NextResponse.next({ request: { headers: requestHeaders } })
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -17,7 +22,7 @@ export async function proxy(request: NextRequest) {
         },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-          response = NextResponse.next({ request })
+          response = NextResponse.next({ request: { headers: requestHeaders } })
           cookiesToSet.forEach(({ name, value, options }) =>
             response.cookies.set(name, value, options)
           )
