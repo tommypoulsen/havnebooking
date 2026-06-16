@@ -1,19 +1,15 @@
 'use client'
 
-import { useActionState, useEffect } from 'react'
+import { Suspense, useActionState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { login } from '@/lib/supabase/actions'
 
-export default function LoginPage() {
+function LoginForm() {
   const [state, formAction, isPending] = useActionState(login, undefined)
   const searchParams = useSearchParams()
 
   useEffect(() => {
     if (state === null) {
-      // null = success (undefined = initial, string = error)
-      // ?next= is set by the proxy when redirecting unauthenticated users to login.
-      // Fall back to /tenants for super-admin (proxy will redirect from / anyway),
-      // or /admin/timeslots for tenant admins.
       const next = searchParams.get('next')
       window.location.href = next ?? '/admin/timeslots'
     }
@@ -59,5 +55,13 @@ export default function LoginPage() {
         </button>
       </form>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   )
 }
