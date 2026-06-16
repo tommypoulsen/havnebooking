@@ -1,17 +1,23 @@
 'use client'
 
 import { useActionState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { login } from '@/lib/supabase/actions'
 
 export default function LoginPage() {
   const [state, formAction, isPending] = useActionState(login, undefined)
+  const searchParams = useSearchParams()
 
   useEffect(() => {
     if (state === null) {
       // null = success (undefined = initial, string = error)
-      window.location.href = '/admin/timeslots'
+      // ?next= is set by the proxy when redirecting unauthenticated users to login.
+      // Fall back to /tenants for super-admin (proxy will redirect from / anyway),
+      // or /admin/timeslots for tenant admins.
+      const next = searchParams.get('next')
+      window.location.href = next ?? '/admin/timeslots'
     }
-  }, [state])
+  }, [state, searchParams])
 
   return (
     <div className="w-full max-w-sm">

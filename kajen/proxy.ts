@@ -51,7 +51,9 @@ export async function proxy(request: NextRequest) {
 
   if (isTenantAdmin || isSuperAdmin) {
     if (!user) {
-      return NextResponse.redirect(new URL('/login', request.url))
+      const loginUrl = new URL('/login', request.url)
+      loginUrl.searchParams.set('next', pathname)
+      return NextResponse.redirect(loginUrl)
     }
 
     if (isSuperAdmin && role !== 'super_admin') {
@@ -70,6 +72,13 @@ export async function proxy(request: NextRequest) {
   const isOnTenantSubdomain =
     hostWithoutPort !== appDomain && hostWithoutPort.endsWith(`.${appDomain}`)
 
+  // On the root domain (no tenant subdomain), redirect unauthenticated users to login
+  // instead of falling through to the tenant layout which would call notFound().
+  if (!isOnTenantSubdomain && !user && pathname === '/') {
+    return NextResponse.redirect(new URL('/login', request.url))
+  }
+
+  // Super-admin landing on the root domain goes straight to their dashboard.
   if (pathname === '/' && role === 'super_admin' && !isOnTenantSubdomain) {
     return NextResponse.redirect(new URL('/tenants', request.url))
   }
