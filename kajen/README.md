@@ -82,13 +82,40 @@ Super-admin konto oprettes tilsvarende med `"role": "super_admin"` (ingen `tenan
 ```bash
 npm run dev                         # dev-server
 npm test                            # Vitest (unit + integration)
-npx playwright test                 # e2e tests (kræver kørende dev-server)
+npm run test:e2e                    # Playwright e2e (se nedenfor)
 npm run build                       # produktionsbuild + TypeScript-tjek
 npx tsc --noEmit                    # TypeScript type-tjek uden build
 npx supabase db push                # kør nye migrationer
 npx supabase gen types typescript \
   --local > lib/types/database.ts   # regenerér DB-typer efter schema-ændringer
 ```
+
+### E2e tests (Playwright)
+
+E2e tests kører mod en **lokal Supabase-instans** — aldrig mod produktion.
+
+**Første gang:**
+```bash
+# 1. Start Docker Desktop
+# 2. Start lokal Supabase
+npx supabase start
+
+# 3. Kopiér test-miljøfil og kør migrationer + seed
+cp .env.test.local.example .env.test.local
+npx supabase db reset --local       # anvender migrationer + seed.sql
+
+# 4. Installér browser
+npx playwright install chromium
+```
+
+`.env.test.local` indeholder de velkendte standard-nøgler til lokal Supabase — du behøver ikke ændre dem, medmindre `npx supabase status` viser andre værdier.
+
+**Kør tests:**
+```bash
+npm run test:e2e
+```
+
+`global-setup` rydder op inden kørslen og opretter test-brugerne. `global-teardown` fjerner dem igen bagefter. Produktion-databasen berøres aldrig.
 
 ---
 
