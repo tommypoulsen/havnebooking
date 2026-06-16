@@ -5,12 +5,7 @@ const TENANT_ADMIN_PATHS = ['/admin']
 const SUPER_ADMIN_PATHS = ['/tenants', '/services-config']
 
 export async function proxy(request: NextRequest) {
-  // Forward ?tenant= param as a header so getTenant() can use it without access to searchParams.
-  const tenantOverride = request.nextUrl.searchParams.get('tenant')
-  const requestHeaders = new Headers(request.headers)
-  if (tenantOverride) requestHeaders.set('x-tenant-override', tenantOverride)
-
-  let response = NextResponse.next({ request: { headers: requestHeaders } })
+  let response = NextResponse.next({ request })
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -22,7 +17,7 @@ export async function proxy(request: NextRequest) {
         },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-          response = NextResponse.next({ request: { headers: requestHeaders } })
+          response = NextResponse.next({ request })
           cookiesToSet.forEach(({ name, value, options }) =>
             response.cookies.set(name, value, options)
           )
@@ -51,6 +46,15 @@ export async function proxy(request: NextRequest) {
     if (isTenantAdmin && role !== 'admin' && role !== 'staff' && role !== 'super_admin') {
       return NextResponse.redirect(new URL('/login', request.url))
     }
+  }
+
+  // ?tenant= cookie override: lets developers browse a tenant site on the root domain
+  // (e.g. havnebooking.vercel.app/?tenant=hundested) while waiting for DNS propagation.
+  const tenantOverride = request.nextUrl.searchParams.get('tenant')
+  if (tenantOverride) {
+    response.cookies.set('tenant-override', tenantOverride, { path: '/', sameSite: 'lax' })
+  } else if (request.cookies.has('tenant-override') && !tenantOverride) {
+    response.cookies.delete('tenant-override')
   }
 
   // Redirect super admins from root to their dashboard — but only when they are NOT
