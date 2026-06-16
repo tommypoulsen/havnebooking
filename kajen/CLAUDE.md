@@ -35,7 +35,7 @@ Produktionskode: `/app/`, `/lib/`, `/supabase/`, `/tests/`
 ```
 app/
   (auth)/              # Login, register — ingen tenant-layout
-  (tenant)/            # Tenant-sider — subdomain resolved i middleware
+  (tenant)/            # Tenant-sider — subdomain resolved i proxy
     layout.tsx         # Loader tenant, injicerer farveskema (#theme-root), SiteHeader/SiteFooter
     page.tsx           # Forside
     priser/            # Prisoversigt
@@ -52,6 +52,7 @@ app/
   api/
     webhooks/
       quickpay/route.ts  # QuickPay callback
+    switch-tenant/route.ts  # Dev-værktøj: sæt tenant-override-cookie
   components/
     SiteHeader.tsx     # Offentlig header (logo eller tekst, burger-menu)
     SiteFooter.tsx     # Offentlig footer med kontaktinfo
@@ -61,7 +62,7 @@ lib/
   supabase/
     client.ts          # Browser Supabase client (singleton)
     server.ts          # Server Supabase client (cookie-baseret)
-    middleware.ts      # Middleware Supabase client
+    middleware.ts      # Supabase-klient til proxy.ts (request-scoped, ikke Next.js middleware)
     actions.ts         # login / logout server actions
   types/
     database.ts        # Autogenereret fra Supabase — redigér IKKE manuelt
@@ -73,7 +74,7 @@ lib/
     availability.ts    # Tilgængelighed — ren funktion
     cancellation.ts    # Refunderingslogik — ren funktion
 supabase/
-  migrations/          # Nummereret SQL: 00001_init.sql … 00005_storage_logos.sql
+  migrations/          # Nummereret SQL: 00001_init.sql … 00008_users_auth_id_nullable.sql
   seed.sql             # Testdata inkl. demo-tidspunkter for Kranløft
 tests/
   unit/                # Vitest unit-tests (pricing, availability, cancellation)
@@ -152,7 +153,7 @@ CREATE POLICY "super_admin_all" ON {tabel}
 
 - Unit: `tests/unit/{modul}.test.ts` — ren forretningslogik, ingen DB-kald
 - Integration: `tests/integration/{område}.test.ts` — mod rigtig Supabase test-tenant, ingen mocks
-- E2e: `tests/e2e/{flow}.spec.ts` — Playwright mod lokal dev-server + test-tenant. **Kræves inden release.** Dækker booking-flow (happy path + fejlscenarier), admin CRUD og betalingsflow (mock QuickPay).
+- E2e: `tests/e2e/{flow}.spec.ts` — Playwright mod **lokal Supabase** (aldrig produktion). Kræver Docker Desktop + `npx supabase start` + `.env.test.local`. **Kræves inden release.** Dækker booking-flow (happy path + fejlscenarier), admin CRUD og betalingsflow (mock QuickPay).
 - Prioritér dækning: `pricing.ts`, `availability.ts`, `cancellation.ts`, QuickPay webhook handler, fuld booking-wizard
 - Kør: `npm test` (Vitest) · `npx playwright test` (e2e)
 
@@ -188,9 +189,11 @@ Hvornår `/code-review` og `/code-review ultra` skal køres: `docs/code-quality.
 ```bash
 npm run dev                         # Start dev-server (localhost:3000)
 npm test                            # Kør Vitest (unit + integration)
-npx playwright test                 # Kør e2e tests
+npm run test:e2e                    # Kør e2e tests (kræver lokal Supabase)
 npm run build                       # Produktionsbuild (check for TS-fejl)
-npx supabase db push                # Kør pending migrationer
+npx supabase start                  # Start lokal Supabase (kræver Docker Desktop)
+npx supabase db reset --local       # Nulstil lokal DB med migrationer + seed
+npx supabase db push                # Kør pending migrationer mod remote
 npx supabase gen types typescript \
   --local > lib/types/database.ts   # Regenerér DB-typer
 ```

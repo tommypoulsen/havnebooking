@@ -13,6 +13,9 @@ Stack: Next.js 16 · React 19 · TypeScript strict · Tailwind CSS v4 · Supabas
 
 - Node.js 20+
 - [Supabase CLI](https://supabase.com/docs/guides/cli) — `npm install -g supabase`
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) — kræves til lokal Supabase (e2e tests)
+  - Windows: `winget install Docker.DockerDesktop`
+  - Mac: `brew install --cask docker`
 - Adgang til: Supabase-projektet, QuickPay testbutik, Resend-konto
 
 ### 1. Installer afhængigheder
@@ -96,7 +99,7 @@ E2e tests kører mod en **lokal Supabase-instans** — aldrig mod produktion.
 
 **Første gang:**
 ```bash
-# 1. Start Docker Desktop
+# 1. Installér og start Docker Desktop (se Forudsætninger ovenfor)
 # 2. Start lokal Supabase
 npx supabase start
 
@@ -202,11 +205,12 @@ Kræver JWT-claim `role = super_admin`. Ingen tenant-scope.
 | Slet bruger | `deleteTenantUser(formData)` — sletter users-række og Supabase Auth-bruger |
 | Nulstil adgangskode | `resetTenantUserPassword(formData)` — sætter ny adgangskode via `auth.admin.updateUserById` |
 
-### API — Webhooks
+### API — Webhooks og hjælpere
 
 | Rute | Metode | Beskrivelse |
 |------|--------|-------------|
 | `/api/webhooks/quickpay` | `POST` | QuickPay betalings-callback: valider HMAC → opdater ordre og betaling → send bekræftelsesmail |
+| `/api/switch-tenant?tenant=<subdomain>` | `GET` | Dev-værktøj: sætter `tenant-override`-cookie og redirecter til `/`. Bruges til at tilgå en tenant-side fra rod-domænet (fx Vercel preview-URL) |
 
 ---
 
@@ -241,6 +245,43 @@ Skemaet vælges i admin → Indstillinger og træder i kraft øjeblikkeligt via 
 
 ---
 
+## Vercel-deployment
+
+### Miljøvariable på Vercel
+
+Sæt følgende environment variables i Vercel-dashboardet (Settings → Environment Variables):
+
+| Variabel | Beskrivelse |
+|----------|-------------|
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon/public key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key (kun server) |
+| `NEXT_PUBLIC_APP_DOMAIN` | Rod-domæne, fx `aksiom.dk` |
+| `QUICKPAY_API_KEY` | QuickPay API-nøgle |
+| `QUICKPAY_PRIVATE_KEY` | QuickPay private key til HMAC-validering |
+| `RESEND_API_KEY` | Resend API-nøgle |
+| `RESEND_FROM_EMAIL` | Afsender-email, fx `noreply@aksiom.dk` |
+
+> **BOM-advarsel**: Hvis du kopierer værdier ind via Vercel-dashboardet og bruger et tekstprogram som Notepad til at holde dem, kan der opstå en usynlig Unicode BOM (U+FEFF) foran værdien. Dette bryder alle HTTP-kald fra Supabase-klienten med en `ByteString`-fejl. Løsning: skriv værdien direkte ind i Vercel-feltet — kopier fra Supabase-dashboardet, ikke fra en mellemliggende tekstfil.
+
+### Custom domain
+
+- Apex-domæne (`aksiom.dk`): `A`-record → `216.198.79.1`
+- Wildcard subdomain (`*.aksiom.dk`): `CNAME`-record → `cname.vercel-dns.com`
+- Tenant-adgang: `hundested.aksiom.dk` → serverer Hundested Bådeværft's tenant-sider
+
+### Tenant-adgang fra Vercel preview-URL
+
+Vercel preview-URL'er har ingen subdomæner, så tenant-routing virker ikke direkte. Brug i stedet:
+
+```
+https://<preview-url>/api/switch-tenant?tenant=hundested
+```
+
+Dette sætter en `tenant-override`-cookie og redirecter til forsiden.
+
+---
+
 ## Vigtigste dokumentation
 
 | Fil | Indhold |
@@ -260,7 +301,7 @@ Skemaet vælges i admin → Indstillinger og træder i kraft øjeblikkeligt via 
 app/
   (auth)/                    # Login — ingen tenant-layout
     login/
-  (tenant)/                  # Tenant-sider — subdomain-resolved i middleware
+  (tenant)/                  # Tenant-sider — subdomain-resolved i proxy
     layout.tsx               # Loader tenant, injicerer farveskema og viser SiteHeader/SiteFooter
     page.tsx                 # Forside
     priser/page.tsx          # Prisside
@@ -299,6 +340,7 @@ app/
   api/
     webhooks/
       quickpay/route.ts      # QuickPay callback (ikke implementeret endnu)
+    switch-tenant/route.ts   # Dev-værktøj: sætter tenant-override-cookie
   components/
     SiteHeader.tsx           # Offentlig header med logo, navigation, burger-menu
     SiteFooter.tsx           # Offentlig footer med kontaktinfo
@@ -308,7 +350,7 @@ lib/
   supabase/
     client.ts               # Browser-klient (singleton)
     server.ts               # Server-klient (cookie-baseret)
-    middleware.ts            # Supabase-klient til proxy (request-scoped)
+    middleware.ts           # Supabase-klient til proxy.ts (request-scoped, ikke Next.js-middleware)
     actions.ts              # login / logout server actions
   types/
     database.ts             # Autogenereret fra Supabase — redigér ikke manuelt
@@ -320,7 +362,7 @@ lib/
     availability.ts         # Tilgængelighed — ren funktion
     cancellation.ts         # Refunderingslogik — ren funktion
 supabase/
-  migrations/               # Nummereret SQL: 00001_init.sql …
+  migrations/               # Nummereret SQL: 00001_init.sql … 00008_users_auth_id_nullable.sql
   seed.sql                  # Testdata inkl. demo-tidspunkter for Kranløft
 tests/
   unit/                     # Vitest unit-tests
