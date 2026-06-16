@@ -5,19 +5,22 @@ const TENANT_ADMIN_PATHS = ['/admin']
 const SUPER_ADMIN_PATHS = ['/tenants', '/services-config']
 
 export async function proxy(request: NextRequest) {
-  // Inject ?tenant= into the request cookies so getTenant() can read it via cookies()
-  // during this very request (not just on the next one).
+  // ?tenant= override: redirect to the same URL without the param, but set a cookie on
+  // the response. The redirect causes a new request that carries the cookie, so
+  // getTenant() can read it via cookies() on the second request.
   const tenantOverride = request.nextUrl.searchParams.get('tenant')
   if (tenantOverride) {
-    request.cookies.set('tenant-override', tenantOverride)
+    const dest = request.nextUrl.clone()
+    dest.searchParams.delete('tenant')
+    const redirectResponse = NextResponse.redirect(dest)
+    redirectResponse.cookies.set('tenant-override', tenantOverride, {
+      path: '/',
+      sameSite: 'lax',
+    })
+    return redirectResponse
   }
 
   let response = NextResponse.next({ request })
-
-  // Also persist the override cookie on the response so it survives navigation.
-  if (tenantOverride) {
-    response.cookies.set('tenant-override', tenantOverride, { path: '/', sameSite: 'lax' })
-  }
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
