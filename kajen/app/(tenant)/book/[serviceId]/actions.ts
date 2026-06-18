@@ -6,7 +6,11 @@ import { zUuid } from '@/lib/utils/zod'
 import { createServiceClient } from '@/lib/supabase/service'
 import { getTenant } from '@/lib/utils/tenant'
 import { calculatePrice, daysBetween } from '@/lib/utils/pricing'
+import { deriveOrderId, quickpayAuthHeader } from '@/lib/utils/quickpay'
 import type { DurationType, PricingRule, Result } from '@/lib/types/domain'
+
+const QpPaymentSchema = z.object({ id: z.number() })
+const QpLinkSchema    = z.object({ url: z.string().url() })
 
 const CreateOrderSchema = z.object({
   service_id:       zUuid,
@@ -28,9 +32,6 @@ function durationType(serviceType: string): DurationType {
   return 'per_day'
 }
 
-function quickpayAuthHeader() {
-  return 'Basic ' + Buffer.from(':' + process.env.QUICKPAY_API_KEY).toString('base64')
-}
 
 export async function createOrder(
   input: CreateOrderInput,
@@ -167,15 +168,17 @@ export async function createOrder(
 
   const confirmationUrl = `${baseUrl}/book/${data.service_id}/confirmation?order=${order.id}`
 
-  // Dev bypass: if QUICKPAY_API_KEY is not configured, skip payment and confirm directly
+  // Dev bypass: if QUICKPAY_API_KEY is not configured, skip payment and confirm directly.
+  // In production this must never happen — throw so misconfiguration is immediately visible.
   if (!process.env.QUICKPAY_API_KEY) {
+    if (process.env.NODE_ENV === 'production')
+      throw new Error('[createOrder] QUICKPAY_API_KEY is not set in production')
     await supabase.from('orders').update({ status: 'confirmed' }).eq('id', order.id)
     return { data: { paymentUrl: confirmationUrl } }
   }
 
-  // QuickPay: create payment
-  // order_id max 20 chars [a-zA-Z0-9-]
-  const qpOrderId = order.id.replace(/-/g, '').slice(0, 20)
+  // QuickPay: create payment — derive a deterministic 20-char hex ID from the order UUID
+  const qpOrderId = deriveOrderId(order.id)
 
   const paymentRes = await fetch('https://api.quickpay.net/payments', {
     method: 'POST',
@@ -192,7 +195,12 @@ export async function createOrder(
     return { error: 'Betalingsgateway utilgængelig — prøv igen' }
   }
 
-  const qpPayment = await paymentRes.json() as { id: number }
+  const qpPaymentParsed = QpPaymentSchema.safeParse(await paymentRes.json())
+  if (!qpPaymentParsed.success) {
+    await supabase.from('orders').delete().eq('id', order.id)
+    return { error: 'Uventet svar fra betalingsgateway' }
+  }
+  const qpPayment = qpPaymentParsed.data
 
   // QuickPay: create payment link (hosted payment page)
   const linkRes = await fetch(`https://api.quickpay.net/payments/${qpPayment.id}/link`, {
@@ -215,7 +223,12 @@ export async function createOrder(
     return { error: 'Kunne ikke oprette betalingslink' }
   }
 
-  const qpLink = await linkRes.json() as { url: string }
+  const qpLinkParsed = QpLinkSchema.safeParse(await linkRes.json())
+  if (!qpLinkParsed.success) {
+    await supabase.from('orders').delete().eq('id', order.id)
+    return { error: 'Uventet svar fra betalingsgateway (link)' }
+  }
+  const qpLink = qpLinkParsed.data
 
   // Record pending payment
   await supabase.from('payments').insert({

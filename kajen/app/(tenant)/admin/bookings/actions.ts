@@ -6,6 +6,7 @@ import { zUuid } from '@/lib/utils/zod'
 import { createClient } from '@/lib/supabase/server'
 import { getTenant } from '@/lib/utils/tenant'
 import { calculateRefundOere } from '@/lib/utils/cancellation'
+import { quickpayAuthHeader } from '@/lib/utils/quickpay'
 
 export async function cancelOrder(
   _prev: string | null | undefined,
@@ -72,11 +73,25 @@ export async function cancelOrder(
     .maybeSingle()
 
   if (payment && refundOere > 0) {
-    // TODO: call QuickPay refund API before recording in DB
-    // POST https://api.quickpay.net/payments/{payment.provider_reference}/refund
-    // body: { amount: refundOere }
-    // Authorization: Basic base64(:<QUICKPAY_API_KEY>)
-    // On success (HTTP 202): proceed. On failure: return error without updating DB.
+    const refundRes = await fetch(
+      `https://api.quickpay.net/payments/${payment.provider_reference}/refund`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization:    quickpayAuthHeader(),
+          'Accept-Version': 'v10',
+          'Content-Type':   'application/json',
+        },
+        body: JSON.stringify({ amount: refundOere }),
+      }
+    )
+    // QuickPay returns 202 Accepted on success
+    if (!refundRes.ok) {
+      console.error(
+        `[cancelOrder] QuickPay refund failed for payment ${payment.provider_reference}: ${refundRes.status}`
+      )
+      return 'Refundering fejlede — betalingen er ikke tilbageført'
+    }
 
     const { error: refundError } = await supabase.from('refunds').insert({
       payment_id: payment.id,

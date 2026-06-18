@@ -46,6 +46,8 @@ export async function createTenant(
   if (!parsed.success) return parsed.error.issues[0].message
 
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || user.app_metadata?.role !== 'super_admin') return 'Ikke autoriseret'
 
   const { error } = await supabase
     .from('tenants')
@@ -78,6 +80,8 @@ export async function updateTenant(
   if (!parsed.success) return parsed.error.issues[0].message
 
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || user.app_metadata?.role !== 'super_admin') return 'Ikke autoriseret'
 
   const { error } = await supabase
     .from('tenants')
@@ -264,6 +268,9 @@ export async function toggleTenantActive(formData: FormData): Promise<void> {
   const active = formData.get('active') === 'true'
 
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || user.app_metadata?.role !== 'super_admin') return
+
   await supabase.from('tenants').update({ active: !active }).eq('id', id)
 
   revalidatePath('/tenants')

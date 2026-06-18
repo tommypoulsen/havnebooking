@@ -58,11 +58,13 @@ export function BookingWizard({
   sizeCategories,
   pricingRules,
   timeSlots,
+  contactEmail,
 }: {
   service: Service
   sizeCategories: SizeCategory[]
   pricingRules: PricingRule[]
   timeSlots: TimeSlot[]
+  contactEmail: string
 }) {
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT)
   const [stepIndex, setStepIndex] = useState(0)
@@ -196,8 +198,8 @@ export function BookingWizard({
           {timeSlots.length === 0 ? (
             <p className="text-charcoal/60 bg-white rounded-xl p-6 border border-warm-gray">
               Ingen ledige tider tilgængelige. Kontakt os på{' '}
-              <a href="mailto:kontakt@hundested-baadevaerft.dk" className="text-rust underline">
-                kontakt@hundested-baadevaerft.dk
+              <a href={`mailto:${contactEmail}`} className="text-rust underline">
+                {contactEmail}
               </a>
             </p>
           ) : (

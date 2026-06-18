@@ -10,8 +10,9 @@ function LoginForm() {
 
   useEffect(() => {
     if (state === null) {
-      const next = searchParams.get('next')
-      window.location.href = next ?? '/admin/timeslots'
+      const raw = searchParams.get('next')
+      const safeNext = raw && raw.startsWith('/') && !raw.startsWith('//') ? raw : '/admin/timeslots'
+      window.location.href = safeNext
     }
   }, [state, searchParams])
 

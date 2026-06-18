@@ -17,10 +17,10 @@ export async function updateTheme(
   const tenant = await getTenant()
   if (!tenant) return 'Tenant ikke fundet'
 
-  const { error } = await supabase
-    .from('tenants')
-    .update({ config: { ...tenant.config, theme } })
-    .eq('id', tenant.id)
+  const { error } = await supabase.rpc('merge_tenant_config', {
+    p_tenant_id: tenant.id,
+    patch: { theme },
+  })
 
   if (error) return 'Kunne ikke gemme'
 
@@ -36,10 +36,10 @@ export async function updateLogoUrl(logoUrl: string): Promise<string | null> {
   const tenant = await getTenant()
   if (!tenant) return 'Tenant ikke fundet'
 
-  const { error } = await supabase
-    .from('tenants')
-    .update({ config: { ...tenant.config, logoUrl: parsed.data } })
-    .eq('id', tenant.id)
+  const { error } = await supabase.rpc('merge_tenant_config', {
+    p_tenant_id: tenant.id,
+    patch: { logoUrl: parsed.data },
+  })
 
   if (error) return 'Kunne ikke gemme logo-URL'
 
@@ -52,12 +52,10 @@ export async function removeLogo(): Promise<string | null> {
   const tenant = await getTenant()
   if (!tenant) return 'Tenant ikke fundet'
 
-  const { logoUrl: _, ...configWithoutLogo } = tenant.config
-
-  const { error } = await supabase
-    .from('tenants')
-    .update({ config: configWithoutLogo })
-    .eq('id', tenant.id)
+  const { error } = await supabase.rpc('remove_tenant_config_key', {
+    p_tenant_id: tenant.id,
+    key: 'logoUrl',
+  })
 
   if (error) return 'Kunne ikke fjerne logo'
 

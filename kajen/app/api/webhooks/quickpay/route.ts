@@ -1,5 +1,7 @@
 import { createHmac } from 'crypto'
 import { createServiceClient } from '@/lib/supabase/service'
+import { sendBookingConfirmation } from '@/lib/email/sendBookingConfirmation'
+import { formatPrice } from '@/lib/utils/pricing'
 
 type QpOperation = {
   id: number
@@ -55,7 +57,7 @@ export async function POST(request: Request) {
     .from('payments')
     .select('id, status, order_id, amount_oere')
     .eq('provider_reference', providerReference)
-    .single()
+    .maybeSingle()
 
   if (!payment) {
     console.error('[quickpay webhook] No payment found for provider_reference:', providerReference)
@@ -81,12 +83,14 @@ export async function POST(request: Request) {
   const timeSlotIds = (lines ?? []).map(l => l.time_slot_id).filter(Boolean) as string[]
   let capacityOk = true
 
-  for (const slotId of timeSlotIds) {
-    const { data: ok } = await supabase.rpc('increment_booked_count', { slot_id: slotId })
-    if (!ok) {
-      capacityOk = false
+  if (timeSlotIds.length > 0) {
+    const { data: allOk } = await supabase.rpc('increment_booked_count_bulk', {
+      slot_ids: timeSlotIds,
+    })
+    capacityOk = allOk === true
+    if (!capacityOk) {
       console.error(
-        `[quickpay webhook] Slot ${slotId} at capacity for order ${payment.order_id}`
+        `[quickpay webhook] One or more slots at capacity for order ${payment.order_id}`
       )
     }
   }
@@ -108,8 +112,55 @@ export async function POST(request: Request) {
     .update({ status: 'confirmed' })
     .eq('id', payment.order_id)
 
-  // TODO: send booking confirmation email via Resend
-  // await sendConfirmationEmail(payment.order_id)
+  // Send confirmation email — wrapped in try/catch so email failure never causes non-200
+  // (QuickPay would retry the webhook if we returned 5xx)
+  try {
+    const { data: orderData } = await supabase
+      .from('orders')
+      .select(`
+        id, total_oere,
+        users ( email ),
+        order_lines (
+          starts_at, ends_at,
+          services ( name ),
+          time_slots ( starts_at )
+        ),
+        tenants ( config )
+      `)
+      .eq('id', payment.order_id)
+      .single()
+
+    if (orderData) {
+      const user    = Array.isArray(orderData.users) ? orderData.users[0] : orderData.users
+      const tenant  = Array.isArray(orderData.tenants) ? orderData.tenants[0] : orderData.tenants
+      const line    = Array.isArray(orderData.order_lines) ? orderData.order_lines[0] : orderData.order_lines
+      const service = line && (Array.isArray(line.services) ? line.services[0] : line.services)
+      const slot    = line && (Array.isArray(line.time_slots) ? line.time_slots[0] : line.time_slots)
+
+      const dateStr = slot?.starts_at
+        ? new Intl.DateTimeFormat('da-DK', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(slot.starts_at))
+        : line?.starts_at
+          ? new Intl.DateTimeFormat('da-DK', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(line.starts_at))
+          : '—'
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const config = (tenant as any)?.config ?? {}
+
+      if (user?.email && service?.name) {
+        await sendBookingConfirmation({
+          toEmail:            user.email,
+          orderId:            orderData.id,
+          serviceName:        service.name,
+          formattedDates:     dateStr,
+          totalDkk:           formatPrice(orderData.total_oere),
+          tenantDisplayName:  config.displayName ?? '',
+          tenantContactEmail: config.contactEmail ?? '',
+        })
+      }
+    }
+  } catch (emailErr) {
+    console.error('[quickpay webhook] Confirmation email failed:', emailErr)
+  }
 
   return new Response('OK', { status: 200 })
 }

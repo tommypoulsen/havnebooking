@@ -71,6 +71,7 @@ export default async function BookingPage({
           sizeCategories={(sizeCategories as SizeCategory[]) ?? []}
           pricingRules={(pricingRules as PricingRule[]) ?? []}
           timeSlots={availableSlots}
+          contactEmail={tenant.config.contactEmail}
         />
       </div>
     </div>
