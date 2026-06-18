@@ -1,7 +1,5 @@
 import { Resend } from 'resend'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
-
 export type BookingConfirmationParams = {
   toEmail: string
   orderId: string
@@ -18,6 +16,8 @@ export async function sendBookingConfirmation(params: BookingConfirmationParams)
     console.error('[sendBookingConfirmation] RESEND_FROM_EMAIL is not set')
     return
   }
+
+  const resend = new Resend(process.env.RESEND_API_KEY)
 
   const shortId = params.orderId.replace(/-/g, '').slice(0, 8).toUpperCase()
 
