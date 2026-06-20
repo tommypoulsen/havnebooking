@@ -8,6 +8,7 @@ const NAV = [
   { href: '/admin/timeslots', label: 'Tidspunkter' },
   { href: '/admin/bookings',  label: 'Bookinger' },
   { href: '/admin/pricing',   label: 'Priser' },
+  { href: '/admin/addons',    label: 'Tillægsregler' },
   { href: '/admin/lager',     label: 'Lager' },
   { href: '/admin/settings',  label: 'Indstillinger' },
 ]
