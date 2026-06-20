@@ -7,6 +7,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { getTenant } from '@/lib/utils/tenant'
 import { calculatePrice, daysBetween } from '@/lib/utils/pricing'
 import { resolveAddOns } from '@/lib/utils/addons'
+import { filterVisibleFormAnswers } from '@/lib/utils/form'
 import { deriveOrderId, quickpayAuthHeader } from '@/lib/utils/quickpay'
 import type { DurationType, PricingRule, ServiceConfig, Result } from '@/lib/types/domain'
 
@@ -50,7 +51,7 @@ export async function createOrder(
   // Verify service belongs to this tenant and is active
   const { data: service } = await supabase
     .from('services')
-    .select('id, type, active, config')
+    .select('id, name, type, active, config')
     .eq('id', data.service_id)
     .eq('tenant_id', tenant.id)
     .single()
@@ -92,7 +93,36 @@ export async function createOrder(
   if (priceOere === null)
     return { error: 'Pris ikke tilgængelig for den valgte konfiguration' }
 
-  let totalOere = priceOere
+  // Apply server-side visibility filtering before add-on resolution.
+  // Replicates the client's dependsOn logic to strip stale hidden-field values.
+  const visibleFormAnswers = filterVisibleFormAnswers(
+    serviceConfig.formFields ?? [],
+    data.form_answers,
+  )
+
+  // Resolve add-ons before order creation so total is known upfront
+  const addOnRules = serviceConfig.addOnRules ?? []
+  let resolvedAddOns: ReturnType<typeof resolveAddOns> = []
+
+  if (addOnRules.length > 0) {
+    const addOnServiceIds = [...new Set(addOnRules.filter(r => r.serviceId).map(r => r.serviceId!))]
+    const { data: addOnPricing } = addOnServiceIds.length > 0
+      ? await supabase
+          .from('pricing_rules')
+          .select('id, service_id, size_category_id, duration_type, price_oere, valid_from, valid_to')
+          .in('service_id', addOnServiceIds)
+      : { data: [] }
+
+    const pricingByService = (addOnPricing ?? []).reduce<Record<string, PricingRule[]>>((acc, r) => {
+      ;(acc[r.service_id] ??= []).push(r as PricingRule)
+      return acc
+    }, {})
+
+    resolvedAddOns = resolveAddOns(addOnRules, visibleFormAnswers, data.size_category_id, pricingByService)
+  }
+
+  const addOnTotal = resolvedAddOns.reduce((s, l) => s + l.amountOere * l.quantity, 0)
+  const totalOere = priceOere + addOnTotal
 
   // Find or create guest customer — auth_id is nullable for guest bookings
   const { data: existingUser } = await supabase
@@ -128,83 +158,39 @@ export async function createOrder(
     userId = newUser.id
   }
 
-  // Create order
-  const { data: order, error: orderError } = await supabase
-    .from('orders')
-    .insert({
-      tenant_id:  tenant.id,
-      user_id:    userId,
-      status:     'pending',
-      total_oere: priceOere,
-    })
-    .select('id')
-    .single()
-
-  if (orderError || !order) return { error: 'Kunne ikke oprette ordre' }
-
-  // Create primary order line
-  const { error: lineError } = await supabase.from('order_lines').insert({
-    order_id:         order.id,
-    service_id:       data.service_id,
-    size_category_id: data.size_category_id,
-    time_slot_id:     data.time_slot_id,
-    starts_at:        data.start_date,
-    ends_at:          data.end_date,
-    quantity:         1,
-    unit_price_oere:  priceOere,
-    line_total_oere:  priceOere,
-    label:            null,
-    attributes:       data.form_answers,
-  })
-
-  if (lineError) {
-    await supabase.from('orders').delete().eq('id', order.id)
-    return { error: 'Kunne ikke gemme booking-detaljer' }
-  }
-
-  // Resolve and insert add-on lines
-  const addOnRules = serviceConfig.addOnRules ?? []
-  if (addOnRules.length > 0) {
-    const addOnServiceIds = [...new Set(addOnRules.filter(r => r.serviceId).map(r => r.serviceId!))]
-    const { data: addOnPricing } = addOnServiceIds.length > 0
-      ? await supabase
-          .from('pricing_rules')
-          .select('id, service_id, size_category_id, duration_type, price_oere, valid_from, valid_to')
-          .in('service_id', addOnServiceIds)
-      : { data: [] }
-
-    const pricingByService = (addOnPricing ?? []).reduce<Record<string, PricingRule[]>>((acc, r) => {
-      ;(acc[r.service_id] ??= []).push(r as PricingRule)
-      return acc
-    }, {})
-
-    const resolved = resolveAddOns(addOnRules, data.form_answers, data.size_category_id, pricingByService)
-
-    if (resolved.length > 0) {
-      await supabase.from('order_lines').insert(
-        resolved.map(l => ({
-          order_id:         order.id,
-          service_id:       l.serviceId ?? data.service_id,
-          size_category_id: l.sizeCategoryId ?? data.size_category_id,
-          quantity:         l.quantity,
-          unit_price_oere:  l.amountOere,
-          line_total_oere:  l.amountOere * l.quantity,
-          label:            l.label,
-          attributes:       { add_on_rule_id: l.ruleId },
-        }))
-      )
-
-      const addOnTotal = resolved.reduce((s, l) => s + l.amountOere * l.quantity, 0)
-      totalOere = priceOere + addOnTotal
-      await supabase
-        .from('orders')
-        .update({ total_oere: totalOere })
-        .eq('id', order.id)
+  // Create order and all lines atomically in a single transaction
+  const { data: rpcData, error: orderError } = await supabase.rpc(
+    'create_order_with_lines',
+    {
+      p_tenant_id:    tenant.id,
+      p_user_id:      userId,
+      p_total_oere:   totalOere,
+      p_primary_line: {
+        service_id:       data.service_id,
+        size_category_id: data.size_category_id,
+        time_slot_id:     data.time_slot_id,
+        starts_at:        data.start_date,
+        ends_at:          data.end_date,
+        unit_price_oere:  priceOere,
+        label:            service.name,
+        attributes:       visibleFormAnswers,
+      },
+      p_addon_lines: resolvedAddOns.map(l => ({
+        service_id:       l.serviceId ?? data.service_id,
+        size_category_id: l.sizeCategoryId ?? data.size_category_id,
+        quantity:         l.quantity,
+        unit_price_oere:  l.amountOere,
+        line_total_oere:  l.amountOere * l.quantity,
+        label:            l.label,
+        attributes:       { add_on_rule_id: l.ruleId },
+      })),
     }
-  }
+  )
 
-  // Derive base URL: explicit env var wins, then host header (normalized by reverse proxy in prod),
-  // then VERCEL_URL for preview deploys, then localhost fallback.
+  const orderId = rpcData as string | null
+  if (orderError || !orderId) return { error: 'Kunne ikke oprette ordre' }
+
+  // Derive base URL: explicit env var wins, then host header (normalized by reverse proxy in prod)
   const headersList = await headers()
   const host = headersList.get('host') ?? 'localhost:3000'
   const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1')
@@ -213,19 +199,19 @@ export async function createOrder(
     process.env.NEXT_PUBLIC_SITE_URL ||
     `${protocol}://${host}`
 
-  const confirmationUrl = `${baseUrl}/book/${data.service_id}/confirmation?order=${order.id}`
+  const confirmationUrl = `${baseUrl}/book/${data.service_id}/confirmation?order=${orderId}`
 
   // Dev bypass: if QUICKPAY_API_KEY is not configured, skip payment and confirm directly.
   // In production this must never happen — throw so misconfiguration is immediately visible.
   if (!process.env.QUICKPAY_API_KEY) {
     if (process.env.NODE_ENV === 'production')
       throw new Error('[createOrder] QUICKPAY_API_KEY is not set in production')
-    await supabase.from('orders').update({ status: 'confirmed' }).eq('id', order.id)
+    await supabase.from('orders').update({ status: 'confirmed' }).eq('id', orderId)
     return { data: { paymentUrl: confirmationUrl } }
   }
 
   // QuickPay: create payment — derive a deterministic 20-char hex ID from the order UUID
-  const qpOrderId = deriveOrderId(order.id)
+  const qpOrderId = deriveOrderId(orderId)
 
   const paymentRes = await fetch('https://api.quickpay.net/payments', {
     method: 'POST',
@@ -238,13 +224,13 @@ export async function createOrder(
   })
 
   if (!paymentRes.ok) {
-    await supabase.from('orders').delete().eq('id', order.id)
+    await supabase.from('orders').delete().eq('id', orderId)
     return { error: 'Betalingsgateway utilgængelig — prøv igen' }
   }
 
   const qpPaymentParsed = QpPaymentSchema.safeParse(await paymentRes.json())
   if (!qpPaymentParsed.success) {
-    await supabase.from('orders').delete().eq('id', order.id)
+    await supabase.from('orders').delete().eq('id', orderId)
     return { error: 'Uventet svar fra betalingsgateway' }
   }
   const qpPayment = qpPaymentParsed.data
@@ -266,20 +252,20 @@ export async function createOrder(
   })
 
   if (!linkRes.ok) {
-    await supabase.from('orders').delete().eq('id', order.id)
+    await supabase.from('orders').delete().eq('id', orderId)
     return { error: 'Kunne ikke oprette betalingslink' }
   }
 
   const qpLinkParsed = QpLinkSchema.safeParse(await linkRes.json())
   if (!qpLinkParsed.success) {
-    await supabase.from('orders').delete().eq('id', order.id)
+    await supabase.from('orders').delete().eq('id', orderId)
     return { error: 'Uventet svar fra betalingsgateway (link)' }
   }
   const qpLink = qpLinkParsed.data
 
   // Record pending payment
   await supabase.from('payments').insert({
-    order_id:           order.id,
+    order_id:           orderId,
     provider:           'quickpay',
     provider_reference: qpPayment.id.toString(),
     amount_oere:        totalOere,

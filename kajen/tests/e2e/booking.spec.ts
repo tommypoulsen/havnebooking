@@ -9,8 +9,13 @@ test('visitor can complete a kranløft booking', async ({ page }) => {
   await page.getByRole('link', { name: /kranløft/i }).first().click()
   await page.waitForURL(/\/book\/[0-9a-f-]+$/, { timeout: 10_000 })
 
+  // Step: pre-fields — select lift type
+  await expect(page.getByRole('heading', { name: 'Oplysninger' })).toBeVisible({ timeout: 10_000 })
+  await page.getByLabel('Formål').selectOption('kun_kranloeft')
+  await page.getByRole('button', { name: 'Næste' }).click()
+
   // Step: size category
-  await expect(page.getByRole('heading', { name: 'Vælg størrelse' })).toBeVisible({ timeout: 10_000 })
+  await expect(page.getByRole('heading', { name: 'Vælg størrelse' })).toBeVisible()
   await page.getByRole('button', { name: /0.3 ton/i }).click()
   await page.getByRole('button', { name: 'Næste' }).click()
 

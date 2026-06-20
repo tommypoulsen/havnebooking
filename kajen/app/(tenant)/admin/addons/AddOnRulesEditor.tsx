@@ -208,10 +208,7 @@ export function AddOnRulesEditor({
                   })}
                 </div>
                 <button
-                  onClick={() => {
-                    const d = drafts.find(r => r.id === draft.id)!
-                    update(draft.id, { conditions: [...d.conditions, { field: '', value: '' }] })
-                  }}
+                  onClick={() => update(draft.id, { conditions: [...draft.conditions, { field: '', value: '' }] })}
                   className="mt-2 text-xs text-charcoal/40 hover:text-charcoal transition-colors"
                 >
                   + Tilføj betingelse

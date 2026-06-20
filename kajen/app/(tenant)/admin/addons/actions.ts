@@ -4,7 +4,6 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { getTenant } from '@/lib/utils/tenant'
-import type { ServiceConfig } from '@/lib/types/domain'
 
 const ConditionSchema = z.object({
   field: z.string().min(1),
@@ -12,15 +11,25 @@ const ConditionSchema = z.object({
 })
 
 const AddOnRuleSchema = z.object({
-  id: z.string().min(1),
-  label: z.string().min(1).max(200),
-  conditions: z.array(ConditionSchema),
-  serviceId: z.string().uuid().optional(),
-  durationType: z.enum(['per_lift', 'per_season', 'per_day']).optional(),
-  sizeTableOere: z.record(z.string().uuid(), z.number().int().nonnegative()).optional(),
+  id:             z.string().min(1),
+  label:          z.string().min(1).max(200),
+  conditions:     z.array(ConditionSchema),
+  serviceId:      z.string().uuid().optional(),
+  durationType:   z.enum(['per_lift', 'per_season', 'per_day']).optional(),
+  sizeTableOere:  z.record(z.string().uuid(), z.number().int().nonnegative()).optional(),
   fixedPriceOere: z.number().int().nonnegative().optional(),
-  quantity: z.number().int().positive().optional(),
-})
+  quantity:       z.number().int().positive().optional(),
+}).refine(
+  (rule) => [
+    rule.fixedPriceOere !== undefined,
+    rule.sizeTableOere !== undefined,
+    rule.serviceId !== undefined,
+  ].filter(Boolean).length === 1,
+  { message: 'Præcis én pristype skal sættes (fast pris, størrelsestabel eller ydelse)' }
+).refine(
+  (rule) => !rule.serviceId || !!rule.durationType,
+  { message: 'Ydelsesbaserede regler skal have en varighed' }
+)
 
 export async function saveAddOnRules(serviceId: string, rules: unknown): Promise<string | null> {
   const supabase = await createClient()
@@ -37,25 +46,20 @@ export async function saveAddOnRules(serviceId: string, rules: unknown): Promise
   const rulesParsed = z.array(AddOnRuleSchema).safeParse(rules)
   if (!rulesParsed.success) return 'Ugyldige regler — tjek alle felter'
 
-  const { data: service } = await supabase
+  const { data: serviceExists } = await supabase
     .from('services')
-    .select('config')
+    .select('id')
     .eq('id', idParsed.data)
     .eq('tenant_id', tenant.id)
-    .single()
+    .maybeSingle()
 
-  if (!service) return 'Ydelse ikke fundet'
+  if (!serviceExists) return 'Ydelse ikke fundet'
 
-  const updatedConfig: ServiceConfig = {
-    ...(service.config as unknown as ServiceConfig),
-    addOnRules: rulesParsed.data,
-  }
-
-  const { error } = await supabase
-    .from('services')
-    .update({ config: updatedConfig })
-    .eq('id', idParsed.data)
-    .eq('tenant_id', tenant.id)
+  // Atomic jsonb_set — avoids the read-modify-write race of spread+update
+  const { error } = await supabase.rpc('set_service_addon_rules', {
+    p_service_id: idParsed.data,
+    p_rules:      rulesParsed.data,
+  })
 
   if (error) return 'Kunne ikke gemme — prøv igen'
 

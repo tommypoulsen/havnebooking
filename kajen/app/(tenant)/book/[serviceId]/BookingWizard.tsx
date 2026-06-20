@@ -5,6 +5,7 @@ import type { Service, SizeCategory, PricingRule, TimeSlot, DurationType } from 
 import { calculatePrice, formatPrice, daysBetween } from '@/lib/utils/pricing'
 import { resolveAddOns } from '@/lib/utils/addons'
 import type { ResolvedLine } from '@/lib/utils/addons'
+import { filterVisibleFormAnswers } from '@/lib/utils/form'
 import { PricePanel } from './PricePanel'
 import { createOrder } from './actions'
 
@@ -109,12 +110,10 @@ export function BookingWizard({
   )
 
   // Restrict formAnswers to visible fields only to avoid stale hidden-field values triggering add-on conditions
-  const effectiveFormAnswers = useMemo(() => {
-    const visibleIds = new Set([...preVisibleFields, ...postVisibleFields].map(f => f.id))
-    return Object.fromEntries(
-      Object.entries(draft.formAnswers).filter(([key]) => visibleIds.has(key))
-    )
-  }, [draft.formAnswers, preVisibleFields, postVisibleFields])
+  const effectiveFormAnswers = useMemo(
+    () => filterVisibleFormAnswers(service.config.formFields ?? [], draft.formAnswers),
+    [service.config.formFields, draft.formAnswers]
+  )
 
   const canAdvance = useMemo(() => {
     if (currentStep === 'pre-fields') return preVisibleFields.every(f => !f.required || !!draft.formAnswers[f.id])
