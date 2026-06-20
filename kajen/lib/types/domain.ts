@@ -43,11 +43,24 @@ export type FormField = {
   required: boolean
   options?: FormFieldOption[]
   dependsOn?: { field: string; value: string }
+  step?: 'pre' | 'post'
+}
+
+export type AddOnRule = {
+  id: string
+  label: string
+  conditions: Array<{ field: string; value: string }>
+  serviceId?: string
+  durationType?: DurationType
+  sizeTableOere?: Record<string, number>
+  fixedPriceOere?: number
+  quantity?: number
 }
 
 export type ServiceConfig = {
   requiresSizeCategory: boolean
   formFields: FormField[]
+  addOnRules?: AddOnRule[]
 }
 
 export type Service = {
@@ -94,6 +107,7 @@ export type OrderLine = {
   quantity: number
   unit_price_oere: number
   line_total_oere: number
+  label: string | null
   attributes: OrderLineAttributes
 }
 

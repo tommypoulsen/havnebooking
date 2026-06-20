@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation'
 import { getTenant } from '@/lib/utils/tenant'
 import { createClient } from '@/lib/supabase/server'
 import { BookingWizard } from './BookingWizard'
-import type { Service, SizeCategory, PricingRule, TimeSlot } from '@/lib/types/domain'
+import type { Service, SizeCategory, PricingRule, TimeSlot, ServiceConfig } from '@/lib/types/domain'
 
 export default async function BookingPage({
   params,
@@ -25,7 +25,12 @@ export default async function BookingPage({
 
   if (!service) notFound()
 
-  const [{ data: sizeCategories }, { data: pricingRules }, { data: timeSlots }] =
+  const serviceConfig = service.config as unknown as ServiceConfig
+  const addOnServiceIds = (serviceConfig.addOnRules ?? [])
+    .filter(r => r.serviceId)
+    .map(r => r.serviceId!)
+
+  const [{ data: sizeCategories }, { data: pricingRules }, { data: timeSlots }, { data: addOnPricingRules }] =
     await Promise.all([
       supabase
         .from('size_categories')
@@ -45,9 +50,14 @@ export default async function BookingPage({
             .order('starts_at')
             .limit(60)
         : { data: [] },
+      addOnServiceIds.length > 0
+        ? supabase
+            .from('pricing_rules')
+            .select('id, service_id, size_category_id, duration_type, price_oere, valid_from, valid_to')
+            .in('service_id', addOnServiceIds)
+        : { data: [] },
     ])
 
-  // Filter to available slots only (client can't do this without raw SQL)
   const availableSlots = (timeSlots as TimeSlot[] | null)?.filter(
     s => s.booked_count < s.capacity
   ) ?? []
@@ -65,15 +75,14 @@ export default async function BookingPage({
           <p className="text-charcoal/50 mt-1 text-sm">{(service as Service).description}</p>
         )}
       </div>
-      <div className="max-w-xl">
-        <BookingWizard
-          service={service as Service}
-          sizeCategories={(sizeCategories as SizeCategory[]) ?? []}
-          pricingRules={(pricingRules as PricingRule[]) ?? []}
-          timeSlots={availableSlots}
-          contactEmail={tenant.config.contactEmail}
-        />
-      </div>
+      <BookingWizard
+        service={service as Service}
+        sizeCategories={(sizeCategories as SizeCategory[]) ?? []}
+        pricingRules={(pricingRules as PricingRule[]) ?? []}
+        addOnPricingRules={(addOnPricingRules as PricingRule[]) ?? []}
+        timeSlots={availableSlots}
+        contactEmail={tenant.config.contactEmail}
+      />
     </div>
   )
 }

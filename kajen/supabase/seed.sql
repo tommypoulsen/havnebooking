@@ -36,6 +36,18 @@ INSERT INTO services (id, tenant_id, name, type, description, config, sort_order
     "requiresSizeCategory": true,
     "formFields": [
       {
+        "id": "lift_type",
+        "label": "Formål",
+        "type": "select",
+        "required": true,
+        "step": "pre",
+        "options": [
+          { "value": "kun_kranloeft", "label": "Kun kranløft" },
+          { "value": "vinteropbevaring", "label": "Kranløft + vinteropbevaring" },
+          { "value": "bedding", "label": "Bedding" }
+        ]
+      },
+      {
         "id": "boat_type",
         "label": "Bådtype",
         "type": "select",
@@ -56,6 +68,88 @@ INSERT INTO services (id, tenant_id, name, type, description, config, sort_order
           { "value": "med_mast", "label": "Med mast" },
           { "value": "uden_mast", "label": "Uden mast" }
         ]
+      }
+    ],
+    "addOnRules": [
+      {
+        "id": "mastetillaeg",
+        "label": "Mastetillæg",
+        "conditions": [
+          { "field": "boat_type", "value": "sejlbaad" },
+          { "field": "mast", "value": "med_mast" }
+        ],
+        "sizeTableOere": {
+          "00000000-0000-0000-0000-000000000020": 15800,
+          "00000000-0000-0000-0000-000000000021": 21000,
+          "00000000-0000-0000-0000-000000000022": 26300,
+          "00000000-0000-0000-0000-000000000023": 31500
+        }
+      },
+      {
+        "id": "stativleje_sejl",
+        "label": "Stativleje (sejlbåd)",
+        "conditions": [
+          { "field": "lift_type", "value": "vinteropbevaring" },
+          { "field": "boat_type", "value": "sejlbaad" }
+        ],
+        "sizeTableOere": {
+          "00000000-0000-0000-0000-000000000020": 157500,
+          "00000000-0000-0000-0000-000000000021": 210000,
+          "00000000-0000-0000-0000-000000000022": 236300,
+          "00000000-0000-0000-0000-000000000023": 262500
+        }
+      },
+      {
+        "id": "stativleje_motor",
+        "label": "Stativleje (motorbåd)",
+        "conditions": [
+          { "field": "lift_type", "value": "vinteropbevaring" },
+          { "field": "boat_type", "value": "motorbaad" }
+        ],
+        "sizeTableOere": {
+          "00000000-0000-0000-0000-000000000020": 183800,
+          "00000000-0000-0000-0000-000000000021": 249400,
+          "00000000-0000-0000-0000-000000000022": 283500,
+          "00000000-0000-0000-0000-000000000023": 315000
+        }
+      },
+      {
+        "id": "transport",
+        "label": "Transport",
+        "conditions": [
+          { "field": "lift_type", "value": "vinteropbevaring" }
+        ],
+        "fixedPriceOere": 47300
+      },
+      {
+        "id": "mastetillaeg_transport",
+        "label": "Mastetillæg transport",
+        "conditions": [
+          { "field": "lift_type", "value": "vinteropbevaring" },
+          { "field": "boat_type", "value": "sejlbaad" },
+          { "field": "mast", "value": "med_mast" }
+        ],
+        "sizeTableOere": {
+          "00000000-0000-0000-0000-000000000020": 15800,
+          "00000000-0000-0000-0000-000000000021": 21000,
+          "00000000-0000-0000-0000-000000000022": 26300,
+          "00000000-0000-0000-0000-000000000023": 31500
+        }
+      },
+      {
+        "id": "stormstøtter",
+        "label": "Stormstøtter",
+        "conditions": [
+          { "field": "lift_type", "value": "vinteropbevaring" },
+          { "field": "boat_type", "value": "sejlbaad" },
+          { "field": "mast", "value": "med_mast" }
+        ],
+        "sizeTableOere": {
+          "00000000-0000-0000-0000-000000000020": 26300,
+          "00000000-0000-0000-0000-000000000021": 31500,
+          "00000000-0000-0000-0000-000000000022": 42000,
+          "00000000-0000-0000-0000-000000000023": 52500
+        }
       }
     ]
   }',

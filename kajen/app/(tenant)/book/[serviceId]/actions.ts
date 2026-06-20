@@ -6,8 +6,9 @@ import { zUuid } from '@/lib/utils/zod'
 import { createServiceClient } from '@/lib/supabase/service'
 import { getTenant } from '@/lib/utils/tenant'
 import { calculatePrice, daysBetween } from '@/lib/utils/pricing'
+import { resolveAddOns } from '@/lib/utils/addons'
 import { deriveOrderId, quickpayAuthHeader } from '@/lib/utils/quickpay'
-import type { DurationType, PricingRule, Result } from '@/lib/types/domain'
+import type { DurationType, PricingRule, ServiceConfig, Result } from '@/lib/types/domain'
 
 const QpPaymentSchema = z.object({ id: z.number() })
 const QpLinkSchema    = z.object({ url: z.string().url() })
@@ -49,12 +50,14 @@ export async function createOrder(
   // Verify service belongs to this tenant and is active
   const { data: service } = await supabase
     .from('services')
-    .select('id, type, active')
+    .select('id, type, active, config')
     .eq('id', data.service_id)
     .eq('tenant_id', tenant.id)
     .single()
 
   if (!service || !service.active) return { error: 'Ydelsen er ikke tilgængelig' }
+
+  const serviceConfig = service.config as unknown as ServiceConfig
 
   // For timeslot services: verify slot exists for this service and has capacity
   if (service.type === 'timeslot') {
@@ -88,6 +91,8 @@ export async function createOrder(
   )
   if (priceOere === null)
     return { error: 'Pris ikke tilgængelig for den valgte konfiguration' }
+
+  let totalOere = priceOere
 
   // Find or create guest customer — auth_id is nullable for guest bookings
   const { data: existingUser } = await supabase
@@ -137,7 +142,7 @@ export async function createOrder(
 
   if (orderError || !order) return { error: 'Kunne ikke oprette ordre' }
 
-  // Create order line
+  // Create primary order line
   const { error: lineError } = await supabase.from('order_lines').insert({
     order_id:         order.id,
     service_id:       data.service_id,
@@ -148,12 +153,54 @@ export async function createOrder(
     quantity:         1,
     unit_price_oere:  priceOere,
     line_total_oere:  priceOere,
+    label:            null,
     attributes:       data.form_answers,
   })
 
   if (lineError) {
     await supabase.from('orders').delete().eq('id', order.id)
     return { error: 'Kunne ikke gemme booking-detaljer' }
+  }
+
+  // Resolve and insert add-on lines
+  const addOnRules = serviceConfig.addOnRules ?? []
+  if (addOnRules.length > 0) {
+    const addOnServiceIds = [...new Set(addOnRules.filter(r => r.serviceId).map(r => r.serviceId!))]
+    const { data: addOnPricing } = addOnServiceIds.length > 0
+      ? await supabase
+          .from('pricing_rules')
+          .select('id, service_id, size_category_id, duration_type, price_oere, valid_from, valid_to')
+          .in('service_id', addOnServiceIds)
+      : { data: [] }
+
+    const pricingByService = (addOnPricing ?? []).reduce<Record<string, PricingRule[]>>((acc, r) => {
+      ;(acc[r.service_id] ??= []).push(r as PricingRule)
+      return acc
+    }, {})
+
+    const resolved = resolveAddOns(addOnRules, data.form_answers, data.size_category_id, pricingByService)
+
+    if (resolved.length > 0) {
+      await supabase.from('order_lines').insert(
+        resolved.map(l => ({
+          order_id:         order.id,
+          service_id:       l.serviceId ?? data.service_id,
+          size_category_id: l.sizeCategoryId ?? data.size_category_id,
+          quantity:         l.quantity,
+          unit_price_oere:  l.amountOere,
+          line_total_oere:  l.amountOere * l.quantity,
+          label:            l.label,
+          attributes:       { add_on_rule_id: l.ruleId },
+        }))
+      )
+
+      const addOnTotal = resolved.reduce((s, l) => s + l.amountOere * l.quantity, 0)
+      totalOere = priceOere + addOnTotal
+      await supabase
+        .from('orders')
+        .update({ total_oere: totalOere })
+        .eq('id', order.id)
+    }
   }
 
   // Derive base URL: explicit env var wins, then host header (normalized by reverse proxy in prod),
@@ -211,7 +258,7 @@ export async function createOrder(
       'Content-Type':   'application/json',
     },
     body: JSON.stringify({
-      amount:       priceOere,
+      amount:       totalOere,
       continue_url: confirmationUrl,
       cancel_url:   `${baseUrl}/book/${data.service_id}`,
       auto_capture: true,
@@ -235,7 +282,7 @@ export async function createOrder(
     order_id:           order.id,
     provider:           'quickpay',
     provider_reference: qpPayment.id.toString(),
-    amount_oere:        priceOere,
+    amount_oere:        totalOere,
     status:             'pending',
   })
 
