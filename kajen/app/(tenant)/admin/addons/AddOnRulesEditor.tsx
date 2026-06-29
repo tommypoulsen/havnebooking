@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { saveAddOnRules } from './actions'
+import { randomId } from '@/lib/utils/uuid'
 import type { AddOnRule, Service, SizeCategory, DurationType } from '@/lib/types/domain'
 
 const DURATION_OPTIONS: { value: DurationType; label: string }[] = [
@@ -65,7 +66,7 @@ function toRule(draft: RuleDraft): AddOnRule {
 
 function emptyDraft(): RuleDraft {
   return {
-    id: crypto.randomUUID(),
+    id: randomId(),
     label: '',
     conditions: [],
     pricingMode: 'fixed',
