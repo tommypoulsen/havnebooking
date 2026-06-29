@@ -67,10 +67,19 @@ export async function proxy(request: NextRequest) {
 
   // Redirect super admins from root to their dashboard — but only when they are NOT
   // on a tenant subdomain, so they can still browse tenant sites for preview/support.
-  const appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN || 'localhost'
+  const configuredAppDomain = process.env.NEXT_PUBLIC_APP_DOMAIN
+  const appDomain = configuredAppDomain || 'localhost'
   const hostWithoutPort = (request.headers.get('host') ?? '').split(':')[0]
+  // A tenant subdomain is a host nested under the app domain (e.g. "hundested.aksiom.dk",
+  // or "hundested.localhost" in dev). The apex and preview URLs (*.vercel.app) resolve to
+  // the root domain so super-admins reach their dashboard.
+  // Fallback: when NEXT_PUBLIC_APP_DOMAIN is MISSING in production, the suffix is "localhost"
+  // and won't match real hosts — so also treat any host with 3+ labels as a tenant subdomain.
+  // This degrades a config slip to "works anyway" instead of locking visitors out of the
+  // homepage, while leaving the dev (*.localhost) and configured-prod behavior unchanged.
   const isOnTenantSubdomain =
-    hostWithoutPort !== appDomain && hostWithoutPort.endsWith(`.${appDomain}`)
+    (hostWithoutPort !== appDomain && hostWithoutPort.endsWith(`.${appDomain}`)) ||
+    (!configuredAppDomain && hostWithoutPort.split('.').length >= 3)
 
   // On the root domain (no tenant subdomain), redirect unauthenticated users to login
   // instead of falling through to the tenant layout which would call notFound().
