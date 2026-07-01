@@ -16,6 +16,14 @@ const TenantSchema = z.object({
   contactHours:   z.string().optional(),
 })
 
+// Server Actions are independent endpoints and do NOT pass through the (super-admin)
+// layout guard, so every privileged action must verify the caller itself.
+async function isSuperAdmin(): Promise<boolean> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  return user?.app_metadata?.role === 'super_admin'
+}
+
 function buildConfig(data: z.infer<typeof TenantSchema>) {
   return {
     displayName:  data.displayName,
@@ -118,6 +126,8 @@ export async function createTenantUser(
   })
   if (!parsed.success) return parsed.error.issues[0].message
 
+  if (!await isSuperAdmin()) return 'Ikke autoriseret'
+
   const supabase = createServiceClient()
 
   // Create auth user with role in app_metadata so JWT claims are set on first login
@@ -129,6 +139,8 @@ export async function createTenantUser(
   })
 
   if (authError || !authData.user) {
+    // Log the real cause server-side (e.g. missing SUPABASE_SERVICE_ROLE_KEY) — never leak it to the client
+    console.error('[createTenantUser] auth.admin.createUser failed:', authError?.status, authError?.message)
     if (authError?.message?.includes('already been registered'))
       return 'E-mailadressen er allerede registreret'
     return 'Kunne ikke oprette auth-bruger'
@@ -172,6 +184,8 @@ export async function updateTenantUser(
   })
   if (!parsed.success) return parsed.error.issues[0].message
 
+  if (!await isSuperAdmin()) return 'Ikke autoriseret'
+
   const supabase = createServiceClient()
 
   const { data: existing } = await supabase
@@ -206,6 +220,8 @@ export async function deleteTenantUser(formData: FormData): Promise<void> {
   const userId   = zUuid.safeParse(formData.get('user_id'))
   const tenantId = zUuid.safeParse(formData.get('tenant_id'))
   if (!userId.success || !tenantId.success) return
+
+  if (!await isSuperAdmin()) return
 
   const supabase = createServiceClient()
 
@@ -243,6 +259,8 @@ export async function resetTenantUserPassword(
     new_password: formData.get('new_password'),
   })
   if (!parsed.success) return parsed.error.issues[0].message
+
+  if (!await isSuperAdmin()) return 'Ikke autoriseret'
 
   const supabase = createServiceClient()
 
